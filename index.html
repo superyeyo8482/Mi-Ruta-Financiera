@@ -40,6 +40,9 @@
             <button @click="openModal('frente')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
                 <i data-lucide="plus-circle" size="16"></i> Nuevo Frente
             </button>
+            <button @click="reiniciarTodo" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
+                <i data-lucide="trash-2" size="16"></i> Reiniciar Todo
+            </button>
         </div>
     </header>
 
@@ -294,7 +297,7 @@
                             <th class="px-4 py-3">Concepto</th>
                             <th class="px-4 py-3 text-right">Monto</th>
                             <th class="px-4 py-3 text-center">Acción</th>
-                        </tr>
+                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="pago in historialPagos" :key="pago.id" class="hover:bg-slate-50">
@@ -538,6 +541,17 @@
                     this.historialPagos = this.historialPagos.filter(p => p.frenteId !== id);
                     this.guardarDatos();
                     this.mostrarAlerta('Frente eliminado.');
+                }
+            },
+            reiniciarTodo() {
+                if (confirm('⚠️ ¿Eliminar TODOS los frentes, metas y pagos? Esta acción no se puede deshacer.')) {
+                    this.frentes = [];
+                    this.proyectos = [];
+                    this.historialPagos = [];
+                    this.guardarDatos();
+                    this.mostrarAlerta('Todos los datos han sido eliminados. La aplicación está en blanco.');
+                    // Actualizar simulador
+                    this.simuladorAporte = 0;
                 }
             },
             procesarCSV() {
