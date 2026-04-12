@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Mi Ruta Financiera | Dashboard</title>
+    <title>Mi Ruta Financiera | Dashboard Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -12,14 +12,13 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Inter', sans-serif; }
         .frente-card { transition: all 0.2s ease; }
-        .frente-card:hover { transform: translateY(-2px); }
         .modal { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-50">
 
 <div id="app" v-cloak>
-    <!-- Pantalla de contraseña (solo si está activada) -->
+    <!-- Pantalla de contraseña (si está activada) -->
     <div v-if="proteccionActiva && !autenticado" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
         <div class="bg-white p-6 rounded-2xl max-w-sm w-full">
             <h2 class="text-xl font-bold mb-4">Acceso protegido</h2>
@@ -29,7 +28,7 @@
         </div>
     </div>
 
-    <!-- Dashboard principal (si no hay contraseña o ya se autenticó) -->
+    <!-- Dashboard principal -->
     <div v-show="!proteccionActiva || autenticado" class="min-h-screen p-4 md:p-6">
         <header class="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -40,7 +39,10 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <button @click="openModal('ingresoRapido')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1">
-                    <i data-lucide="plus-circle" size="16"></i> Ingreso Rápido
+                    <i data-lucide="plus-circle" size="16"></i> Ingreso
+                </button>
+                <button @click="openModal('gastoRapido')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1">
+                    <i data-lucide="minus-circle" size="16"></i> Gasto
                 </button>
                 <button @click="openModal('importar')" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl text-sm">
                     <i data-lucide="upload" size="16"></i> Importar
@@ -58,7 +60,7 @@
         </header>
 
         <main class="max-w-7xl mx-auto">
-            <!-- KPIs (siempre visibles) -->
+            <!-- KPIs -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
                 <div class="bg-white p-4 rounded-xl shadow-sm"><div class="flex justify-between"><span class="text-slate-500 text-xs">💼 Total Compromisos</span><i data-lucide="target" size="14" class="text-amber-600"></i></div><h2 class="text-xl font-bold text-amber-700">${{ formatNumber(totalCompromisos) }}</h2><p class="text-[10px]">{{ frentes.length }} frentes</p></div>
                 <div class="bg-white p-4 rounded-xl shadow-sm"><div class="flex justify-between"><span class="text-slate-500 text-xs">📅 Aportación Mensual</span><i data-lucide="calendar" size="14" class="text-emerald-600"></i></div><h2 class="text-xl font-bold text-emerald-600">${{ formatNumber(aporteMensualTotal) }}</h2></div>
@@ -73,7 +75,7 @@
                 <button @click="tabActivo = 'asistente'" :class="tabActivo === 'asistente' ? 'border-indigo-500 text-indigo-600' : 'border-transparent'" class="pb-2 px-1 border-b-2 font-medium text-sm">Asistente</button>
             </div>
 
-            <!-- Pestaña Frentes -->
+            <!-- Pestaña Frentes (similar a antes) -->
             <div v-show="tabActivo === 'frentes'">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div v-for="frente in frentes" :key="frente.id" class="bg-white rounded-xl shadow-sm border p-4">
@@ -85,11 +87,46 @@
                 </div>
             </div>
 
-            <!-- Pestaña Flujo de Efectivo -->
+            <!-- Pestaña Flujo de Efectivo (mejorada) -->
             <div v-show="tabActivo === 'efectivo'">
-                <div class="bg-white p-4 rounded-xl shadow-sm mb-4"><div class="text-2xl font-bold">Saldo disponible: ${{ formatNumber(saldoEfectivo) }}</div><div class="flex gap-2 mt-2"><button @click="openModalIngresoEfectivo" class="bg-emerald-600 text-white px-3 py-1 rounded text-sm">+ Ingreso</button><button @click="openModalGastoEfectivo" class="bg-red-600 text-white px-3 py-1 rounded text-sm">- Gasto</button></div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm"><canvas id="efectivoChart" height="180"></canvas></div>
-                <div class="mt-4 bg-white rounded-xl overflow-hidden"><table class="w-full text-sm"><thead class="bg-slate-50"><tr><th class="p-2">Fecha</th><th>Concepto</th><th class="text-right">Monto</th><th></th></tr></thead><tbody><tr v-for="mov in movimientosEfectivo.slice().reverse().slice(0,8)" :key="mov.id"><td class="p-2 text-xs">{{ mov.fecha }}</td><td class="p-2 text-xs">{{ mov.concepto }}</td><td class="p-2 text-right" :class="mov.tipo === 'ingreso' ? 'text-emerald-600' : 'text-red-600'">${{ formatNumber(mov.monto) }}</td><td class="p-2"><button @click="eliminarMovimientoEfectivo(mov.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr><tr v-if="!movimientosEfectivo.length"><td colspan="4" class="text-center py-4 text-slate-400">Sin movimientos</td></tr></tbody></table></div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
+                        <div class="text-2xl font-bold">Saldo disponible: ${{ formatNumber(saldoEfectivo) }}</div>
+                        <div class="flex gap-2 mt-2">
+                            <button @click="openModal('ingresoRapido')" class="bg-emerald-600 text-white px-3 py-1 rounded text-sm">+ Ingreso</button>
+                            <button @click="openModal('gastoRapido')" class="bg-red-600 text-white px-3 py-1 rounded text-sm">- Gasto</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm">
+                        <h3 class="font-bold text-sm mb-2">Resumen del mes</h3>
+                        <div class="space-y-1 text-sm"><div class="flex justify-between"><span>Ingresos:</span><span class="text-emerald-600">${{ formatNumber(totalIngresosEfectivoMes) }}</span></div><div class="flex justify-between"><span>Gastos:</span><span class="text-red-600">${{ formatNumber(totalGastosEfectivoMes) }}</span></div><div class="flex justify-between border-t pt-1"><span>Flujo neto:</span><span :class="flujoNetoMes >=0 ? 'text-emerald-600' : 'text-red-600'">${{ formatNumber(flujoNetoMes) }}</span></div></div>
+                    </div>
+                </div>
+                <!-- Gráfico de evolución y de categorías -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold text-sm mb-2">Evolución del saldo (30 días)</h3><canvas id="efectivoChart" height="180"></canvas></div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold text-sm mb-2">Gastos por categoría (este mes)</h3><canvas id="categoriaChart" height="180"></canvas></div>
+                </div>
+                <!-- Tabla de movimientos mejorada -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-3 border-b flex justify-between items-center"><h3 class="font-bold">Historial de movimientos</h3><button @click="openModalReporteEfectivo" class="text-indigo-600 text-sm">Ver reporte completo</button></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50"><tr class="text-left text-xs font-semibold"><th class="p-2">Fecha</th><th class="p-2">Categoría</th><th class="p-2">Concepto</th><th class="p-2 text-right">Monto</th><th class="p-2">Factura</th><th class="p-2"></th></tr></thead>
+                            <tbody>
+                                <tr v-for="mov in movimientosEfectivo.slice().reverse().slice(0,15)" :key="mov.id" class="border-t">
+                                    <td class="p-2 text-xs">{{ mov.fecha }}</td>
+                                    <td class="p-2 text-xs"><span class="bg-slate-100 px-1 rounded">{{ mov.categoria || 'General' }}</span></td>
+                                    <td class="p-2 text-xs">{{ mov.concepto }}</td>
+                                    <td class="p-2 text-right" :class="mov.tipo === 'ingreso' ? 'text-emerald-600' : 'text-red-600'">${{ formatNumber(mov.monto) }}</td>
+                                    <td class="p-2 text-center">{{ mov.factura ? '🧾' : '' }}</td>
+                                    <td class="p-2"><button @click="eliminarMovimientoEfectivo(mov.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td>
+                                </tr>
+                                <tr v-if="!movimientosEfectivo.length"><td colspan="6" class="text-center py-4 text-slate-400">Sin movimientos</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Pestaña Asistente -->
@@ -103,11 +140,45 @@
             </div>
         </main>
 
-        <!-- Modales (ingreso rápido, cargo, reporte, etc.) -->
-        <div v-if="modalIngresoRapido" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Ingreso Rápido</h3><form @submit.prevent="agregarMovimientoRapido"><div><label>Concepto</label><input type="text" v-model="ingresoRapido.concepto" required class="w-full border rounded px-3 py-2 mb-3"></div><div><label>Monto</label><input type="number" v-model="ingresoRapido.monto" required step="0.01" class="w-full border rounded px-3 py-2 mb-3"></div><div><label>Fecha</label><input type="date" v-model="ingresoRapido.fecha" required class="w-full border rounded px-3 py-2 mb-3"></div><div class="flex gap-2"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded">Guardar</button><button type="button" @click="cerrarModal" class="flex-1 border rounded py-2">Cancelar</button></div></form></div></div>
+        <!-- Modal para Ingreso/Gasto Rápido (con categorías y factura) -->
+        <div v-if="modalMovimientoRapido" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal">
+            <div class="bg-white rounded-2xl max-w-md w-full p-5">
+                <h3 class="text-lg font-bold mb-4">{{ tipoMovimiento === 'ingreso' ? 'Registrar Ingreso' : 'Registrar Gasto' }}</h3>
+                <form @submit.prevent="agregarMovimientoRapido">
+                    <div class="mb-3"><label>Concepto *</label><input type="text" v-model="movimientoRapido.concepto" required class="w-full border rounded px-3 py-2"></div>
+                    <div class="mb-3"><label>Categoría</label><input type="text" v-model="movimientoRapido.categoria" placeholder="Ej: Transporte, Comida, Ocio..." class="w-full border rounded px-3 py-2"></div>
+                    <div class="mb-3"><label>Monto *</label><input type="number" v-model="movimientoRapido.monto" required step="0.01" class="w-full border rounded px-3 py-2"></div>
+                    <div class="mb-3"><label>Fecha *</label><input type="date" v-model="movimientoRapido.fecha" required class="w-full border rounded px-3 py-2"></div>
+                    <div class="mb-4 flex items-center gap-2"><input type="checkbox" v-model="movimientoRapido.factura"> <label>Requiere factura / comprobante</label></div>
+                    <div class="flex gap-2"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded">Guardar</button><button type="button" @click="cerrarModal" class="flex-1 border rounded py-2">Cancelar</button></div>
+                </form>
+            </div>
+        </div>
 
-        <!-- Modal configuración (contraseña) -->
-        <div v-if="modalConfig" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Configuración</h3><label class="flex items-center gap-2 mb-4"><input type="checkbox" v-model="proteccionActiva"> Activar protección con contraseña</label><div v-if="proteccionActiva"><label>Contraseña (mínimo 4 caracteres)</label><input type="password" v-model="claveGuardada" class="w-full border rounded px-3 py-2 mb-2"><p class="text-xs text-slate-400">Si la cambias, la próxima vez pedirá la nueva.</p></div><button @click="guardarConfiguracion" class="bg-indigo-600 text-white w-full py-2 rounded mt-2">Guardar</button></div></div>
+        <!-- Modal Cargo (igual) -->
+        <div v-if="modalCargo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Cargo a {{ frenteCargo?.nombre }}</h3><form @submit.prevent="agregarCargo"><div class="mb-3"><label>Concepto</label><input type="text" v-model="cargoForm.concepto" required class="w-full border rounded px-3 py-2"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="cargoForm.monto" required step="0.01" class="w-full border rounded px-3 py-2"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="cargoForm.fecha" required class="w-full border rounded px-3 py-2"></div><div class="flex gap-2"><button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded">Registrar</button><button type="button" @click="cerrarModal" class="flex-1 border rounded py-2">Cancelar</button></div></form></div></div>
+
+        <!-- Modal Reporte Frente -->
+        <div v-if="modalReporteFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between"><h3 class="text-lg font-bold">Estado de cuenta: {{ frenteReporte?.nombre }}</h3><button @click="cerrarModal">✕</button></div><table class="w-full text-sm border mt-3"><thead class="bg-slate-50"><tr><th class="p-2">Fecha</th><th>Tipo</th><th>Concepto</th><th class="text-right">Monto</th><th class="text-right">Saldo</th></tr></thead><tbody><tr v-for="mov in movimientosFrenteReporte" :key="mov.id" class="border-t"><td class="p-2">{{ mov.fecha }}</td><td>{{ mov.tipo === 'pago' ? 'Abono' : 'Cargo' }}</td><td>{{ mov.concepto }}</td><td class="text-right">${{ formatNumber(mov.monto) }}</td><td class="text-right">${{ formatNumber(mov.saldo) }}</td></tr></tbody></table></div></div>
+
+        <!-- Modal Configuración (agregamos botones para limpiar frentes y limpiar movimientos) -->
+        <div v-if="modalConfig" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal">
+            <div class="bg-white rounded-2xl max-w-md w-full p-5">
+                <h3 class="text-lg font-bold mb-4">Configuración</h3>
+                <label class="flex items-center gap-2 mb-4"><input type="checkbox" v-model="proteccionActiva"> Activar protección con contraseña</label>
+                <div v-if="proteccionActiva"><label>Contraseña (mínimo 4 caracteres)</label><input type="password" v-model="claveGuardada" class="w-full border rounded px-3 py-2 mb-2"></div>
+                <hr class="my-4">
+                <div class="space-y-2">
+                    <button @click="limpiarFrentes" class="bg-red-600 text-white w-full py-2 rounded">🗑️ Eliminar todos los frentes</button>
+                    <button @click="limpiarMovimientosEfectivo" class="bg-orange-600 text-white w-full py-2 rounded">🧹 Eliminar todos los movimientos de efectivo</button>
+                    <button @click="reiniciarTodo" class="bg-slate-700 text-white w-full py-2 rounded">⚠️ Reiniciar todo (frentes, movimientos, proyectos)</button>
+                </div>
+                <button @click="guardarConfiguracion" class="bg-indigo-600 text-white w-full py-2 rounded mt-4">Guardar configuración</button>
+            </div>
+        </div>
+
+        <!-- Modal reporte efectivo completo (opcional) -->
+        <div v-if="modalReporteEfectivo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between"><h3 class="text-lg font-bold">Reporte completo de movimientos</h3><button @click="cerrarModal">✕</button></div><table class="w-full text-sm"><thead class="bg-slate-50"><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th class="text-right">Monto</th><th>Factura</th></tr></thead><tbody><tr v-for="mov in movimientosEfectivo" :key="mov.id"><td>{{ mov.fecha }}</td><td>{{ mov.categoria || 'General' }}</td><td>{{ mov.concepto }}</td><td class="text-right" :class="mov.tipo==='ingreso'?'text-emerald-600':'text-red-600'">${{ formatNumber(mov.monto) }}</td><td>{{ mov.factura ? 'Sí' : 'No' }}</td></tr></tbody></table></div></div>
     </div>
 </div>
 
@@ -123,33 +194,59 @@
             cargos: [],
             movimientosEfectivo: [],
             saldoEfectivo: 0,
-            modalIngresoRapido: false, modalCargo: false, modalReporteFrente: false, modalConfig: false,
-            ingresoRapido: { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) },
+            modalMovimientoRapido: false,
+            modalCargo: false,
+            modalReporteFrente: false,
+            modalConfig: false,
+            modalReporteEfectivo: false,
+            tipoMovimiento: 'ingreso',
+            movimientoRapido: { concepto: '', categoria: '', monto: '', fecha: new Date().toISOString().slice(0,10), factura: false },
             cargoForm: { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) },
             frenteCargo: null,
             frenteReporte: null,
             ingresoExtra: 0,
             sugerenciaDistribucion: [],
-            // Configuración de contraseña
+            // Contraseña
             proteccionActiva: false,
             autenticado: false,
             claveIngresada: '',
             claveGuardada: '',
-            alerta: false, alertaMensaje: ''
+            // Gráficos
+            chartEfectivo: null,
+            chartCategorias: null
         },
         computed: {
             totalCompromisos() { return this.frentes.reduce((s,f) => s + (f.saldoTotal - f.saldoPagado), 0); },
             aporteMensualTotal() { return this.frentes.reduce((s,f) => s + f.aporteMensual, 0); },
             tiempoEstimadoTotal() { let m = this.totalCompromisos / (this.aporteMensualTotal || 1); if(m<1) return '<1 mes'; return Math.ceil(m)+' meses'; },
-            porcentajeGlobal() { let t=this.frentes.reduce((s,f)=>s+f.saldoTotal,0); let p=this.frentes.reduce((s,f)=>s+f.saldoPagado,0); return t?Math.round(p/t*100):0; }
+            porcentajeGlobal() { let t=this.frentes.reduce((s,f)=>s+f.saldoTotal,0); let p=this.frentes.reduce((s,f)=>s+f.saldoPagado,0); return t?Math.round(p/t*100):0; },
+            totalIngresosEfectivoMes() { let hoy=new Date(); let mes=hoy.getMonth(), año=hoy.getFullYear(); return this.movimientosEfectivo.filter(m=>m.tipo==='ingreso' && new Date(m.fecha).getMonth()===mes && new Date(m.fecha).getFullYear()===año).reduce((s,m)=>s+m.monto,0); },
+            totalGastosEfectivoMes() { let hoy=new Date(); let mes=hoy.getMonth(), año=hoy.getFullYear(); return this.movimientosEfectivo.filter(m=>m.tipo==='gasto' && new Date(m.fecha).getMonth()===mes && new Date(m.fecha).getFullYear()===año).reduce((s,m)=>s+m.monto,0); },
+            flujoNetoMes() { return this.totalIngresosEfectivoMes - this.totalGastosEfectivoMes; },
+            movimientosFrenteReporte() {
+                if(!this.frenteReporte) return [];
+                let pagos = this.historialPagos.filter(p=>p.frenteId===this.frenteReporte.id).map(p=>({...p, tipo:'pago'}));
+                let cargosF = this.cargos.filter(c=>c.frenteId===this.frenteReporte.id).map(c=>({...c, tipo:'cargo'}));
+                let todos = [...pagos, ...cargosF].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+                let saldo = this.frenteReporte.saldoTotal - this.frenteReporte.saldoPagado;
+                let res = [];
+                for(let i=todos.length-1; i>=0; i--) {
+                    let mov = todos[i];
+                    if(mov.tipo === 'pago') saldo += mov.monto;
+                    else saldo -= mov.monto;
+                    res.unshift({...mov, saldo});
+                }
+                return res;
+            }
         },
         mounted() {
             this.cargarDatos();
             this.cargarConfiguracion();
             lucide.createIcons();
-            this.inicializarGraficoEfectivo();
+            this.inicializarGraficos();
+            this.actualizarGraficos();
         },
-        updated() { lucide.createIcons(); this.actualizarGraficoEfectivo(); },
+        updated() { lucide.createIcons(); this.actualizarGraficos(); },
         methods: {
             formatNumber(n) { return (n||0).toLocaleString('es-MX',{minimumFractionDigits:2}); },
             cargarDatos() {
@@ -168,14 +265,28 @@
                 localStorage.setItem('finanzas_saldoEfectivo', this.saldoEfectivo);
             },
             agregarMovimientoRapido() {
-                let mov = { id: Date.now(), tipo: 'ingreso', concepto: this.ingresoRapido.concepto, monto: parseFloat(this.ingresoRapido.monto), fecha: this.ingresoRapido.fecha };
+                let mov = {
+                    id: Date.now(),
+                    tipo: this.tipoMovimiento,
+                    concepto: this.movimientoRapido.concepto,
+                    categoria: this.movimientoRapido.categoria || 'General',
+                    monto: parseFloat(this.movimientoRapido.monto),
+                    fecha: this.movimientoRapido.fecha,
+                    factura: this.movimientoRapido.factura
+                };
                 this.movimientosEfectivo.push(mov);
-                this.saldoEfectivo += mov.monto;
+                if(mov.tipo === 'ingreso') this.saldoEfectivo += mov.monto;
+                else this.saldoEfectivo -= mov.monto;
                 this.guardarDatos();
-                this.modalIngresoRapido = false;
-                this.mostrarAlerta('Ingreso registrado');
+                this.cerrarModal();
+                this.mostrarAlerta(`${mov.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} registrado`);
             },
-            openModal(tipo) { if(tipo === 'ingresoRapido') this.modalIngresoRapido = true; else if(tipo === 'importar') alert('Función importar disponible en versión completa'); else if(tipo === 'frente') alert('Agrega frente desde el botón +'); },
+            openModal(tipo) {
+                if(tipo === 'ingresoRapido') { this.tipoMovimiento = 'ingreso'; this.movimientoRapido = { concepto: '', categoria: '', monto: '', fecha: new Date().toISOString().slice(0,10), factura: false }; this.modalMovimientoRapido = true; }
+                else if(tipo === 'gastoRapido') { this.tipoMovimiento = 'gasto'; this.movimientoRapido = { concepto: '', categoria: '', monto: '', fecha: new Date().toISOString().slice(0,10), factura: false }; this.modalMovimientoRapido = true; }
+                else if(tipo === 'importar') alert('Función importar disponible en versión completa');
+                else if(tipo === 'frente') alert('Agrega frente desde el botón +');
+            },
             exportarDatos() { alert('Exportación disponible en versión completa'); },
             registrarPagoFrente(frente) { let monto = prompt('Monto a abonar a '+frente.nombre); if(monto>0) this.actualizarFrente(frente.id, parseFloat(monto), 'Abono manual'); },
             actualizarFrente(id, monto, concepto) { let f=this.frentes.find(f=>f.id===id); if(f && monto<=f.saldoRestante){ f.saldoPagado+=monto; f.saldoRestante=f.saldoTotal-f.saldoPagado; f.porcentajePagado=Math.round(f.saldoPagado/f.saldoTotal*100); this.historialPagos.push({id:Date.now(),frenteId:id, monto, concepto, fecha:new Date().toISOString().slice(0,10)}); this.guardarDatos(); this.mostrarAlerta('Abono registrado'); } },
@@ -184,18 +295,52 @@
             verReporteFrente(frente) { this.frenteReporte = frente; this.modalReporteFrente = true; },
             sugerirDistribucion() { let total=this.ingresoExtra; if(total<=0) return; let prioridadMax = this.frentes.find(f=>f.prioridadMaxima); let resto = total; let sugerencia=[]; if(prioridadMax){ let monto = Math.min(resto, total*0.5); sugerencia.push({frente:prioridadMax, monto}); resto-=monto; } let alta = this.frentes.filter(f=>f.prioridad==='alta' && f!==prioridadMax); let media = this.frentes.filter(f=>f.prioridad==='media'); let baja = this.frentes.filter(f=>f.prioridad==='baja'); let totalAlta = alta.length?resto*0.6:0; let totalMedia = media.length?resto*0.3:0; let totalBaja = baja.length?resto*0.1:0; alta.forEach(f=>sugerencia.push({frente:f, monto:totalAlta/alta.length})); media.forEach(f=>sugerencia.push({frente:f, monto:totalMedia/media.length})); baja.forEach(f=>sugerencia.push({frente:f, monto:totalBaja/baja.length})); this.sugerenciaDistribucion = sugerencia.filter(s=>s.monto>0); },
             aplicarSugerencia() { this.sugerenciaDistribucion.forEach(s=>this.actualizarFrente(s.frente.id, s.monto, 'Distribución asistente')); this.sugerenciaDistribucion=[]; this.mostrarAlerta('Distribución aplicada'); },
-            openModalIngresoEfectivo() { let monto=prompt('Monto del ingreso:'); if(monto>0){ this.movimientosEfectivo.push({id:Date.now(), tipo:'ingreso', concepto:'Ingreso manual', monto:parseFloat(monto), fecha:new Date().toISOString().slice(0,10)}); this.saldoEfectivo+=parseFloat(monto); this.guardarDatos(); this.mostrarAlerta('Ingreso agregado'); } },
-            openModalGastoEfectivo() { let monto=prompt('Monto del gasto:'); if(monto>0){ this.movimientosEfectivo.push({id:Date.now(), tipo:'gasto', concepto:'Gasto manual', monto:parseFloat(monto), fecha:new Date().toISOString().slice(0,10)}); this.saldoEfectivo-=parseFloat(monto); this.guardarDatos(); this.mostrarAlerta('Gasto agregado'); } },
-            eliminarMovimientoEfectivo(id) { let mov=this.movimientosEfectivo.find(m=>m.id===id); if(mov && confirm('Eliminar?')){ if(mov.tipo==='ingreso') this.saldoEfectivo-=mov.monto; else this.saldoEfectivo+=mov.monto; this.movimientosEfectivo=this.movimientosEfectivo.filter(m=>m.id!==id); this.guardarDatos(); } },
-            inicializarGraficoEfectivo() { this.ctx = document.getElementById('efectivoChart')?.getContext('2d'); if(this.ctx) this.chart = new Chart(this.ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Saldo', data: [], borderColor: '#10b981', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: true } }); },
-            actualizarGraficoEfectivo() { if(!this.chart) return; let ultimos30 = []; let hoy = new Date(); for(let i=29;i>=0;i--){ let d = new Date(); d.setDate(hoy.getDate()-i); ultimos30.push(d.toISOString().slice(0,10)); } let saldoAcum=0; let saldos=[]; let movOrdenados = [...this.movimientosEfectivo].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)); let idx=0; for(let fecha of ultimos30){ while(idx<movOrdenados.length && movOrdenados[idx].fecha<=fecha){ if(movOrdenados[idx].tipo==='ingreso') saldoAcum+=movOrdenados[idx].monto; else saldoAcum-=movOrdenados[idx].monto; idx++; } saldos.push(saldoAcum); } this.chart.data.labels = ultimos30.map(d=>d.slice(5)); this.chart.data.datasets[0].data = saldos; this.chart.update(); },
+            eliminarMovimientoEfectivo(id) { let mov=this.movimientosEfectivo.find(m=>m.id===id); if(mov && confirm('Eliminar?')){ if(mov.tipo==='ingreso') this.saldoEfectivo-=mov.monto; else this.saldoEfectivo+=mov.monto; this.movimientosEfectivo=this.movimientosEfectivo.filter(m=>m.id!==id); this.guardarDatos(); this.mostrarAlerta('Movimiento eliminado'); } },
+            limpiarFrentes() { if(confirm('¿Eliminar TODOS los frentes? Se perderán pagos y cargos asociados.')){ this.frentes=[]; this.historialPagos=[]; this.cargos=[]; this.guardarDatos(); this.mostrarAlerta('Todos los frentes eliminados'); } },
+            limpiarMovimientosEfectivo() { if(confirm('¿Eliminar TODOS los movimientos de efectivo? Se reiniciará el saldo a 0.')){ this.movimientosEfectivo=[]; this.saldoEfectivo=0; this.guardarDatos(); this.mostrarAlerta('Movimientos de efectivo eliminados'); } },
+            reiniciarTodo() { if(confirm('⚠️ ¿Reiniciar TODO? Se perderán frentes, movimientos, proyectos, etc.')){ this.frentes=[]; this.historialPagos=[]; this.cargos=[]; this.movimientosEfectivo=[]; this.saldoEfectivo=0; this.proyectos=[]; this.guardarDatos(); this.mostrarAlerta('Todos los datos han sido reiniciados'); } },
+            openModalReporteEfectivo() { this.modalReporteEfectivo = true; },
             // Configuración de contraseña
             cargarConfiguracion() { this.proteccionActiva = localStorage.getItem('proteccionActiva') === 'true'; this.claveGuardada = localStorage.getItem('claveGuardada') || ''; if(this.proteccionActiva && this.claveGuardada) this.autenticado = false; else this.autenticado = true; },
             guardarConfiguracion() { localStorage.setItem('proteccionActiva', this.proteccionActiva); if(this.proteccionActiva && this.claveGuardada.length>=4) localStorage.setItem('claveGuardada', this.claveGuardada); else if(this.proteccionActiva && this.claveGuardada.length<4) alert('La contraseña debe tener al menos 4 caracteres'); this.modalConfig=false; this.cargarConfiguracion(); },
             verificarClave() { if(this.claveIngresada === this.claveGuardada) { this.autenticado = true; this.claveIngresada = ''; } else alert('Contraseña incorrecta'); },
             abrirConfiguracion() { this.modalConfig = true; },
-            cerrarModal() { this.modalIngresoRapido=false; this.modalCargo=false; this.modalReporteFrente=false; this.modalConfig=false; },
-            mostrarAlerta(msg) { this.alertaMensaje=msg; this.alerta=true; setTimeout(()=>this.alerta=false,3000); }
+            cerrarModal() { this.modalMovimientoRapido=false; this.modalCargo=false; this.modalReporteFrente=false; this.modalConfig=false; this.modalReporteEfectivo=false; },
+            mostrarAlerta(msg) { alert(msg); }, // simplificado
+            // Gráficos
+            inicializarGraficos() {
+                let ctx1 = document.getElementById('efectivoChart')?.getContext('2d');
+                if(ctx1) this.chartEfectivo = new Chart(ctx1, { type: 'line', data: { labels: [], datasets: [{ label: 'Saldo', data: [], borderColor: '#10b981', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: true } });
+                let ctx2 = document.getElementById('categoriaChart')?.getContext('2d');
+                if(ctx2) this.chartCategorias = new Chart(ctx2, { type: 'doughnut', data: { labels: [], datasets: [{ data: [], backgroundColor: ['#f97316','#10b981','#3b82f6','#8b5cf6','#ef4444','#eab308'] }] }, options: { responsive: true, maintainAspectRatio: true } });
+            },
+            actualizarGraficos() {
+                if(this.chartEfectivo) {
+                    let ultimos30 = []; let hoy = new Date();
+                    for(let i=29;i>=0;i--){ let d=new Date(); d.setDate(hoy.getDate()-i); ultimos30.push(d.toISOString().slice(0,10)); }
+                    let saldoAcum=0; let saldos=[]; let movOrdenados = [...this.movimientosEfectivo].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+                    let idx=0;
+                    for(let fecha of ultimos30){
+                        while(idx<movOrdenados.length && movOrdenados[idx].fecha<=fecha){
+                            if(movOrdenados[idx].tipo==='ingreso') saldoAcum+=movOrdenados[idx].monto;
+                            else saldoAcum-=movOrdenados[idx].monto;
+                            idx++;
+                        }
+                        saldos.push(saldoAcum);
+                    }
+                    this.chartEfectivo.data.labels = ultimos30.map(d=>d.slice(5));
+                    this.chartEfectivo.data.datasets[0].data = saldos;
+                    this.chartEfectivo.update();
+                }
+                if(this.chartCategorias) {
+                    let hoy=new Date(); let mes=hoy.getMonth(), año=hoy.getFullYear();
+                    let gastosPorCat = {};
+                    this.movimientosEfectivo.filter(m=>m.tipo==='gasto' && new Date(m.fecha).getMonth()===mes && new Date(m.fecha).getFullYear()===año).forEach(m=>{ gastosPorCat[m.categoria||'General'] = (gastosPorCat[m.categoria||'General']||0)+m.monto; });
+                    this.chartCategorias.data.labels = Object.keys(gastosPorCat);
+                    this.chartCategorias.data.datasets[0].data = Object.values(gastosPorCat);
+                    this.chartCategorias.update();
+                }
+            }
         }
     });
 </script>
