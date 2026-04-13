@@ -2,188 +2,224 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Mi Ruta Financiera | Dashboard Inteligente</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Ruta Financiera | Dashboard Completo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Librerías para PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Inter', sans-serif; }
         .frente-card { transition: all 0.2s ease; }
+        .frente-card:hover { transform: translateY(-2px); }
         .modal { transition: all 0.3s ease; }
+        .notificacion { animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body class="bg-slate-50">
 
-<div id="app" v-cloak>
-    <!-- Pantalla de contraseña (si está activada) -->
-    <div v-if="proteccionActiva && !autenticado" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-2xl max-w-sm w-full">
-            <h2 class="text-xl font-bold mb-4">Acceso protegido</h2>
-            <input type="password" v-model="claveIngresada" placeholder="Contraseña" class="w-full border rounded-lg px-3 py-2 mb-4" @keyup.enter="verificarClave">
-            <button @click="verificarClave" class="bg-indigo-600 text-white w-full py-2 rounded-lg">Entrar</button>
-            <p class="text-xs text-slate-400 mt-3">Si no has puesto contraseña, desactívala en configuración.</p>
+<div class="min-h-screen p-4 md:p-6" id="app">
+    <!-- Header -->
+    <header class="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-3">
+                <i data-lucide="compass" class="text-indigo-600"></i> Mi Ruta Financiera
+            </h1>
+            <p class="text-slate-500 text-sm">Dashboard inteligente con asistente de pagos y exportación CSV/PDF</p>
         </div>
-    </div>
+        <div class="flex flex-wrap gap-2">
+            <button @click="openModal('importar')" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
+                <i data-lucide="upload" size="16"></i> Importar CSV
+            </button>
+            <button @click="exportarTodoCSV" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
+                <i data-lucide="download" size="16"></i> Todo a CSV
+            </button>
+            <button @click="exportarTodoPDF" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
+                <i data-lucide="file-text" size="16"></i> Todo a PDF
+            </button>
+            <button @click="openModal('frente')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
+                <i data-lucide="plus-circle" size="16"></i> Nuevo Frente
+            </button>
+            <button @click="reiniciarTodo" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm">
+                <i data-lucide="trash-2" size="16"></i> Reiniciar Todo
+            </button>
+        </div>
+    </header>
 
-    <!-- Dashboard principal -->
-    <div v-show="!proteccionActiva || autenticado" class="min-h-screen p-4 md:p-6">
-        <header class="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    <i data-lucide="compass" class="text-indigo-600"></i> Mi Ruta Financiera
-                </h1>
-                <p class="text-slate-500 text-sm">Control total de frentes, efectivo y estrategias</p>
+    <main class="max-w-7xl mx-auto">
+        <!-- KPIs (sin cambios) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-500 text-xs font-medium">💼 Total Compromisos</span>
+                    <div class="bg-amber-100 p-1.5 rounded-lg text-amber-600"><i data-lucide="target" size="14"></i></div>
+                </div>
+                <h2 class="text-xl font-bold text-amber-700">${{ formatNumber(totalCompromisos) }}</h2>
+                <p class="text-[10px] text-slate-400 mt-1">{{ frentes.length }} frentes activos</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <button @click="openModal('ingresoRapido')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1">
-                    <i data-lucide="plus-circle" size="16"></i> Ingreso
-                </button>
-                <button @click="openModal('gastoRapido')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-1">
-                    <i data-lucide="minus-circle" size="16"></i> Gasto
-                </button>
-                <button @click="openModal('importar')" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl text-sm">
-                    <i data-lucide="upload" size="16"></i> Importar
-                </button>
-                <button @click="exportarDatos" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-xl text-sm">
-                    <i data-lucide="download" size="16"></i> Exportar
-                </button>
-                <button @click="openModal('frente')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-sm">
-                    <i data-lucide="plus-circle" size="16"></i> Nuevo Frente
-                </button>
-                <button @click="abrirConfiguracion" class="bg-slate-500 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-sm">
-                    <i data-lucide="settings" size="16"></i>
-                </button>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-500 text-xs font-medium">📅 Aportación Mensual</span>
+                    <div class="bg-emerald-100 p-1.5 rounded-lg text-emerald-600"><i data-lucide="calendar" size="14"></i></div>
+                </div>
+                <h2 class="text-xl font-bold text-emerald-600">${{ formatNumber(aporteMensualTotal) }}</h2>
+                <p class="text-[10px] text-slate-400 mt-1">Capacidad actual de pago</p>
             </div>
-        </header>
-
-        <main class="max-w-7xl mx-auto">
-            <!-- KPIs -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                <div class="bg-white p-4 rounded-xl shadow-sm"><div class="flex justify-between"><span class="text-slate-500 text-xs">💼 Total Compromisos</span><i data-lucide="target" size="14" class="text-amber-600"></i></div><h2 class="text-xl font-bold text-amber-700">${{ formatNumber(totalCompromisos) }}</h2><p class="text-[10px]">{{ frentes.length }} frentes</p></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm"><div class="flex justify-between"><span class="text-slate-500 text-xs">📅 Aportación Mensual</span><i data-lucide="calendar" size="14" class="text-emerald-600"></i></div><h2 class="text-xl font-bold text-emerald-600">${{ formatNumber(aporteMensualTotal) }}</h2></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm"><div class="flex justify-between"><span class="text-slate-500 text-xs">⏱️ Tiempo Estimado</span><i data-lucide="clock" size="14" class="text-blue-600"></i></div><h2 class="text-xl font-bold text-blue-600">{{ tiempoEstimadoTotal }}</h2></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-l-indigo-500"><div class="flex justify-between"><span class="text-slate-500 text-xs">🎯 Progreso Global</span><i data-lucide="trending-up" size="14" class="text-indigo-600"></i></div><h2 class="text-xl font-bold text-indigo-600">{{ porcentajeGlobal }}%</h2><div class="w-full bg-slate-200 h-1.5 rounded-full mt-1"><div class="bg-indigo-500 h-full rounded-full" :style="{ width: porcentajeGlobal + '%' }"></div></div></div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-500 text-xs font-medium">⏱️ Tiempo Estimado</span>
+                    <div class="bg-blue-100 p-1.5 rounded-lg text-blue-600"><i data-lucide="clock" size="14"></i></div>
+                </div>
+                <h2 class="text-xl font-bold text-blue-600">{{ tiempoEstimadoTotal }}</h2>
+                <p class="text-[10px] text-slate-400 mt-1">hasta libertad financiera</p>
             </div>
-
-            <!-- Pestañas -->
-            <div class="mb-6 border-b border-slate-200 flex gap-4">
-                <button @click="tabActivo = 'frentes'" :class="tabActivo === 'frentes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent'" class="pb-2 px-1 border-b-2 font-medium text-sm">Frentes</button>
-                <button @click="tabActivo = 'efectivo'" :class="tabActivo === 'efectivo' ? 'border-indigo-500 text-indigo-600' : 'border-transparent'" class="pb-2 px-1 border-b-2 font-medium text-sm">Flujo de Efectivo</button>
-                <button @click="tabActivo = 'asistente'" :class="tabActivo === 'asistente' ? 'border-indigo-500 text-indigo-600' : 'border-transparent'" class="pb-2 px-1 border-b-2 font-medium text-sm">Asistente</button>
-            </div>
-
-            <!-- Pestaña Frentes (similar a antes) -->
-            <div v-show="tabActivo === 'frentes'">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div v-for="frente in frentes" :key="frente.id" class="bg-white rounded-xl shadow-sm border p-4">
-                        <div class="flex justify-between"><div><h3 class="font-bold">{{ frente.nombre }}</h3><p class="text-[10px] text-slate-400">{{ frente.tipo }}</p></div><span :class="frente.prioridad === 'alta' ? 'bg-red-100 text-red-600' : frente.prioridad === 'media' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'" class="text-[9px] px-2 py-0.5 rounded-full">{{ frente.prioridad }}</span></div>
-                        <div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span>Restante</span><span class="font-bold">${{ formatNumber(frente.saldoRestante) }}</span></div><div class="flex justify-between"><span>Aporte/mes</span><span>${{ formatNumber(frente.aporteMensual) }}</span></div><div class="w-full bg-slate-200 h-1.5 rounded-full"><div class="bg-emerald-500 h-full rounded-full" :style="{ width: frente.porcentajePagado + '%' }"></div></div></div>
-                        <div class="mt-3 flex gap-2"><button @click="registrarPagoFrente(frente)" class="flex-1 bg-slate-100 text-xs py-1 rounded">Abonar</button><button @click="openModalCargo(frente)" class="flex-1 bg-red-50 text-red-600 text-xs py-1 rounded">Cargo</button><button @click="verReporteFrente(frente)" class="text-indigo-500"><i data-lucide="file-text" size="16"></i></button></div>
-                    </div>
-                    <div @click="openModal('frente')" class="bg-slate-50 rounded-xl border-2 border-dashed flex flex-col items-center justify-center p-6 cursor-pointer"><i data-lucide="plus-circle" size="32" class="text-slate-300"></i><p class="text-sm text-slate-400">Agregar frente</p></div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-indigo-500">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-500 text-xs font-medium">🎯 Progreso Global</span>
+                    <div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-600"><i data-lucide="trending-up" size="14"></i></div>
+                </div>
+                <h2 class="text-xl font-bold text-indigo-600">{{ porcentajeGlobal }}%</h2>
+                <div class="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div class="bg-indigo-500 h-full rounded-full" :style="{ width: porcentajeGlobal + '%' }"></div>
                 </div>
             </div>
+        </div>
 
-            <!-- Pestaña Flujo de Efectivo (mejorada) -->
-            <div v-show="tabActivo === 'efectivo'">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                    <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
-                        <div class="text-2xl font-bold">Saldo disponible: ${{ formatNumber(saldoEfectivo) }}</div>
-                        <div class="flex gap-2 mt-2">
-                            <button @click="openModal('ingresoRapido')" class="bg-emerald-600 text-white px-3 py-1 rounded text-sm">+ Ingreso</button>
-                            <button @click="openModal('gastoRapido')" class="bg-red-600 text-white px-3 py-1 rounded text-sm">- Gasto</button>
+        <!-- Pestañas -->
+        <div class="mb-6 border-b border-slate-200">
+            <div class="flex gap-4">
+                <button @click="tabActivo = 'frentes'" :class="{'border-indigo-500 text-indigo-600': tabActivo === 'frentes'}" class="pb-2 px-1 border-b-2 font-medium text-sm transition">Frentes</button>
+                <button @click="tabActivo = 'efectivo'" :class="{'border-indigo-500 text-indigo-600': tabActivo === 'efectivo'}" class="pb-2 px-1 border-b-2 font-medium text-sm transition">Flujo de Efectivo</button>
+                <button @click="tabActivo = 'asistente'" :class="{'border-indigo-500 text-indigo-600': tabActivo === 'asistente'}" class="pb-2 px-1 border-b-2 font-medium text-sm transition">Asistente y Prioridades</button>
+            </div>
+        </div>
+
+        <!-- Sección Frentes -->
+        <div v-show="tabActivo === 'frentes'">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div v-for="frente in frentes" :key="frente.id" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden frente-card">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-slate-800">{{ frente.nombre }}</h3>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-wider">{{ frente.tipo }}</p>
+                        </div>
+                        <div class="flex gap-1">
+                            <span v-if="frente.prioridadMaxima" class="bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">⭐ Máxima</span>
+                            <span :class="frente.prioridad === 'alta' ? 'bg-red-100 text-red-600' : frente.prioridad === 'media' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'" class="text-[9px] font-bold px-2 py-0.5 rounded-full">
+                                {{ frente.prioridad === 'alta' ? '🔥 Alta' : frente.prioridad === 'media' ? '⚠️ Media' : '✅ Baja' }}
+                            </span>
                         </div>
                     </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm">
-                        <h3 class="font-bold text-sm mb-2">Resumen del mes</h3>
-                        <div class="space-y-1 text-sm"><div class="flex justify-between"><span>Ingresos:</span><span class="text-emerald-600">${{ formatNumber(totalIngresosEfectivoMes) }}</span></div><div class="flex justify-between"><span>Gastos:</span><span class="text-red-600">${{ formatNumber(totalGastosEfectivoMes) }}</span></div><div class="flex justify-between border-t pt-1"><span>Flujo neto:</span><span :class="flujoNetoMes >=0 ? 'text-emerald-600' : 'text-red-600'">${{ formatNumber(flujoNetoMes) }}</span></div></div>
+                    <div class="p-4 space-y-2">
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">Restante</span><span class="font-bold">${{ formatNumber(frente.saldoRestante) }}</span></div>
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">Aportación/mes</span><span class="font-medium">${{ formatNumber(frente.aporteMensual) }}</span></div>
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">Total abonado</span><span class="text-emerald-600 font-medium">${{ formatNumber(totalAbonadoFrente(frente.id)) }}</span></div>
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">Vence</span><span class="font-medium text-red-500">{{ frente.fechaVencimiento || 'No definida' }}</span></div>
+                        <div class="mt-2"><div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>Progreso</span><span>{{ frente.porcentajePagado }}%</span></div><div class="w-full bg-slate-200 h-2 rounded-full"><div class="bg-emerald-500 h-full rounded-full" :style="{ width: frente.porcentajePagado + '%' }"></div></div></div>
+                        <div class="pt-2 flex flex-wrap gap-2">
+                            <button @click="registrarPagoFrente(frente)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"><i data-lucide="credit-card" size="12"></i> Abonar</button>
+                            <button @click="openModalCargo(frente)" class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs py-1.5 rounded-lg flex items-center justify-center gap-1"><i data-lucide="plus-circle" size="12"></i> Cargo</button>
+                            <button @click="exportarFrenteCSV(frente)" class="text-emerald-600 p-1.5" title="Exportar CSV"><i data-lucide="download" size="16"></i> CSV</button>
+                            <button @click="exportarFrentePDF(frente)" class="text-red-600 p-1.5" title="Exportar PDF"><i data-lucide="file-text" size="16"></i> PDF</button>
+                            <button @click="verReporteFrente(frente)" class="text-slate-500 p-1.5" title="Ver historial"><i data-lucide="eye" size="16"></i></button>
+                            <button @click="editarFrente(frente)" class="text-slate-400 p-1.5"><i data-lucide="edit-2" size="14"></i></button>
+                            <button @click="eliminarFrente(frente.id)" class="text-red-400 p-1.5"><i data-lucide="trash-2" size="14"></i></button>
+                        </div>
                     </div>
                 </div>
-                <!-- Gráfico de evolución y de categorías -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold text-sm mb-2">Evolución del saldo (30 días)</h3><canvas id="efectivoChart" height="180"></canvas></div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold text-sm mb-2">Gastos por categoría (este mes)</h3><canvas id="categoriaChart" height="180"></canvas></div>
-                </div>
-                <!-- Tabla de movimientos mejorada -->
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div class="p-3 border-b flex justify-between items-center"><h3 class="font-bold">Historial de movimientos</h3><button @click="openModalReporteEfectivo" class="text-indigo-600 text-sm">Ver reporte completo</button></div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-slate-50"><tr class="text-left text-xs font-semibold"><th class="p-2">Fecha</th><th class="p-2">Categoría</th><th class="p-2">Concepto</th><th class="p-2 text-right">Monto</th><th class="p-2">Factura</th><th class="p-2"></th></tr></thead>
-                            <tbody>
-                                <tr v-for="mov in movimientosEfectivo.slice().reverse().slice(0,15)" :key="mov.id" class="border-t">
-                                    <td class="p-2 text-xs">{{ mov.fecha }}</td>
-                                    <td class="p-2 text-xs"><span class="bg-slate-100 px-1 rounded">{{ mov.categoria || 'General' }}</span></td>
-                                    <td class="p-2 text-xs">{{ mov.concepto }}</td>
-                                    <td class="p-2 text-right" :class="mov.tipo === 'ingreso' ? 'text-emerald-600' : 'text-red-600'">${{ formatNumber(mov.monto) }}</td>
-                                    <td class="p-2 text-center">{{ mov.factura ? '🧾' : '' }}</td>
-                                    <td class="p-2"><button @click="eliminarMovimientoEfectivo(mov.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td>
-                                </tr>
-                                <tr v-if="!movimientosEfectivo.length"><td colspan="6" class="text-center py-4 text-slate-400">Sin movimientos</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pestaña Asistente -->
-            <div v-show="tabActivo === 'asistente'">
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h3 class="text-xl font-bold mb-2">Asistente de distribución</h3>
-                    <p class="text-slate-500 mb-4">Registra un ingreso extra y te sugeriré cómo distribuirlo.</p>
-                    <div class="flex gap-2"><input type="number" v-model="ingresoExtra" placeholder="Monto extra" class="border rounded px-3 py-2 flex-1"><button @click="sugerirDistribucion" class="bg-indigo-600 text-white px-4 py-2 rounded">Sugerir</button></div>
-                    <div v-if="sugerenciaDistribucion.length" class="mt-6 bg-slate-50 p-4 rounded"><div v-for="item in sugerenciaDistribucion" class="flex justify-between border-b py-1"><span>{{ item.frente.nombre }}</span><span class="font-bold">${{ formatNumber(item.monto) }}</span></div><button @click="aplicarSugerencia" class="mt-3 bg-emerald-600 text-white px-4 py-2 rounded">Aplicar</button></div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Modal para Ingreso/Gasto Rápido (con categorías y factura) -->
-        <div v-if="modalMovimientoRapido" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal">
-            <div class="bg-white rounded-2xl max-w-md w-full p-5">
-                <h3 class="text-lg font-bold mb-4">{{ tipoMovimiento === 'ingreso' ? 'Registrar Ingreso' : 'Registrar Gasto' }}</h3>
-                <form @submit.prevent="agregarMovimientoRapido">
-                    <div class="mb-3"><label>Concepto *</label><input type="text" v-model="movimientoRapido.concepto" required class="w-full border rounded px-3 py-2"></div>
-                    <div class="mb-3"><label>Categoría</label><input type="text" v-model="movimientoRapido.categoria" placeholder="Ej: Transporte, Comida, Ocio..." class="w-full border rounded px-3 py-2"></div>
-                    <div class="mb-3"><label>Monto *</label><input type="number" v-model="movimientoRapido.monto" required step="0.01" class="w-full border rounded px-3 py-2"></div>
-                    <div class="mb-3"><label>Fecha *</label><input type="date" v-model="movimientoRapido.fecha" required class="w-full border rounded px-3 py-2"></div>
-                    <div class="mb-4 flex items-center gap-2"><input type="checkbox" v-model="movimientoRapido.factura"> <label>Requiere factura / comprobante</label></div>
-                    <div class="flex gap-2"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded">Guardar</button><button type="button" @click="cerrarModal" class="flex-1 border rounded py-2">Cancelar</button></div>
-                </form>
+                <div @click="openModal('frente')" class="bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-6 cursor-pointer min-h-[260px]"><i data-lucide="plus-circle" size="32" class="text-slate-300 mb-2"></i><p class="text-sm text-slate-400 font-medium">Agregar nuevo frente</p></div>
             </div>
         </div>
 
-        <!-- Modal Cargo (igual) -->
-        <div v-if="modalCargo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Cargo a {{ frenteCargo?.nombre }}</h3><form @submit.prevent="agregarCargo"><div class="mb-3"><label>Concepto</label><input type="text" v-model="cargoForm.concepto" required class="w-full border rounded px-3 py-2"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="cargoForm.monto" required step="0.01" class="w-full border rounded px-3 py-2"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="cargoForm.fecha" required class="w-full border rounded px-3 py-2"></div><div class="flex gap-2"><button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded">Registrar</button><button type="button" @click="cerrarModal" class="flex-1 border rounded py-2">Cancelar</button></div></form></div></div>
+        <!-- Sección Flujo de Efectivo con Gráfico y exportación -->
+        <div v-show="tabActivo === 'efectivo'">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm">
+                    <h3 class="font-bold text-md mb-3 flex items-center gap-2"><i data-lucide="wallet" size="18"></i> Saldo Disponible</h3>
+                    <div class="text-4xl font-bold text-emerald-600 mb-4">${{ formatNumber(saldoEfectivo) }}</div>
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="openModalIngresoEfectivo" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="plus-circle" size="14"></i> Ingreso</button>
+                        <button @click="openModalGastoEfectivo" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="minus-circle" size="14"></i> Gasto</button>
+                        <button @click="exportarEfectivoCSV" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="download" size="14"></i> CSV</button>
+                        <button @click="exportarEfectivoPDF" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="file-text" size="14"></i> PDF</button>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold text-md mb-2">📊 Resumen del mes</h3><div class="space-y-2 text-sm"><div class="flex justify-between"><span>Ingresos:</span><span class="text-emerald-600 font-bold">${{ formatNumber(totalIngresosEfectivoMes) }}</span></div><div class="flex justify-between"><span>Gastos:</span><span class="text-red-600 font-bold">${{ formatNumber(totalGastosEfectivoMes) }}</span></div><div class="flex justify-between border-t pt-2"><span>Flujo neto:</span><span :class="flujoNetoMes >=0 ? 'text-emerald-600' : 'text-red-600'" class="font-bold">${{ formatNumber(flujoNetoMes) }}</span></div></div></div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+                <h3 class="font-bold mb-3">📈 Evolución del saldo (últimos 30 días)</h3>
+                <canvas id="efectivoChart" height="200"></canvas>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center"><h3 class="font-bold">Historial de movimientos</h3><button @click="openModalReporteEfectivo" class="text-indigo-600 text-sm">Ver reporte completo</button></div>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-slate-50"><tr class="text-left text-xs font-semibold"><th class="px-4 py-2">Fecha</th><th class="px-4 py-2">Concepto</th><th class="px-4 py-2 text-right">Ingreso</th><th class="px-4 py-2 text-right">Gasto</th><th class="px-4 py-2"></th></tr></thead><tbody>
+                    <tr v-for="mov in movimientosEfectivo.slice().reverse().slice(0,10)" :key="mov.id" class="border-t"><td class="px-4 py-2 text-xs">{{ mov.fecha }}</td><td class="px-4 py-2 text-xs">{{ mov.concepto }}</td><td class="px-4 py-2 text-right text-emerald-600" v-if="mov.tipo === 'ingreso'">${{ formatNumber(mov.monto) }}</td><td class="px-4 py-2 text-right" v-else></td><td class="px-4 py-2 text-right text-red-600" v-if="mov.tipo === 'gasto'">${{ formatNumber(mov.monto) }}</td><td class="px-4 py-2 text-right" v-else></td><td class="px-4 py-2 text-center"><button @click="eliminarMovimientoEfectivo(mov.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr>
+                    <tr v-if="movimientosEfectivo.length === 0"><td colspan="5" class="text-center py-6 text-slate-400">Sin movimientos registrados</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
 
-        <!-- Modal Reporte Frente -->
-        <div v-if="modalReporteFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between"><h3 class="text-lg font-bold">Estado de cuenta: {{ frenteReporte?.nombre }}</h3><button @click="cerrarModal">✕</button></div><table class="w-full text-sm border mt-3"><thead class="bg-slate-50"><tr><th class="p-2">Fecha</th><th>Tipo</th><th>Concepto</th><th class="text-right">Monto</th><th class="text-right">Saldo</th></tr></thead><tbody><tr v-for="mov in movimientosFrenteReporte" :key="mov.id" class="border-t"><td class="p-2">{{ mov.fecha }}</td><td>{{ mov.tipo === 'pago' ? 'Abono' : 'Cargo' }}</td><td>{{ mov.concepto }}</td><td class="text-right">${{ formatNumber(mov.monto) }}</td><td class="text-right">${{ formatNumber(mov.saldo) }}</td></tr></tbody></table></div></div>
-
-        <!-- Modal Configuración (agregamos botones para limpiar frentes y limpiar movimientos) -->
-        <div v-if="modalConfig" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal">
-            <div class="bg-white rounded-2xl max-w-md w-full p-5">
-                <h3 class="text-lg font-bold mb-4">Configuración</h3>
-                <label class="flex items-center gap-2 mb-4"><input type="checkbox" v-model="proteccionActiva"> Activar protección con contraseña</label>
-                <div v-if="proteccionActiva"><label>Contraseña (mínimo 4 caracteres)</label><input type="password" v-model="claveGuardada" class="w-full border rounded px-3 py-2 mb-2"></div>
-                <hr class="my-4">
+        <!-- Sección Asistente y Prioridades (sin cambios) -->
+        <div v-show="tabActivo === 'asistente'">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 mb-6">
+                <h3 class="text-xl font-bold mb-2 flex items-center gap-2"><i data-lucide="zap" class="text-amber-500"></i> Asistente de Distribución de Ingresos Extra</h3>
+                <p class="text-slate-500 mb-4">Registra un ingreso extra y el sistema te sugerirá cómo distribuirlo basado en prioridad máxima y urgencia.</p>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <input type="number" v-model="ingresoExtra" placeholder="Monto del ingreso extra" class="border rounded-lg px-3 py-2 flex-1">
+                    <button @click="sugerirDistribucion" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Generar sugerencia</button>
+                </div>
+                <div v-if="sugerenciaDistribucion.length" class="mt-6 bg-slate-50 p-4 rounded-lg">
+                    <h4 class="font-bold mb-2">📋 Propuesta de distribución:</h4>
+                    <div v-for="item in sugerenciaDistribucion" :key="item.frente.id" class="flex justify-between items-center border-b py-2">
+                        <span><strong>{{ item.frente.nombre }}</strong> {{ item.frente.prioridadMaxima ? '⭐ Prioridad máxima' : '' }}</span>
+                        <span class="font-bold text-emerald-600">${{ formatNumber(item.monto) }}</span>
+                    </div>
+                    <div class="mt-4 pt-2 border-t flex justify-end gap-2">
+                        <button @click="aplicarSugerencia" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">Aplicar distribución</button>
+                        <button @click="sugerenciaDistribucion = []" class="border rounded-lg px-4 py-2">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="settings"></i> Configuración de prioridades</h3>
+                <p class="text-slate-500 mb-4">Define qué frente debe tener prioridad máxima (solo uno puede ser ⭐). Los demás se ordenan por prioridad (alta/media/baja).</p>
                 <div class="space-y-2">
-                    <button @click="limpiarFrentes" class="bg-red-600 text-white w-full py-2 rounded">🗑️ Eliminar todos los frentes</button>
-                    <button @click="limpiarMovimientosEfectivo" class="bg-orange-600 text-white w-full py-2 rounded">🧹 Eliminar todos los movimientos de efectivo</button>
-                    <button @click="reiniciarTodo" class="bg-slate-700 text-white w-full py-2 rounded">⚠️ Reiniciar todo (frentes, movimientos, proyectos)</button>
+                    <div v-for="frente in frentes" :key="frente.id" class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div class="flex items-center gap-3"><i data-lucide="grip-vertical" class="text-slate-400"></i><span>{{ frente.nombre }}</span></div>
+                        <div class="flex gap-2">
+                            <button @click="togglePrioridadMaxima(frente)" :class="frente.prioridadMaxima ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-bold">⭐ Prioridad Máxima</button>
+                            <select v-model="frente.prioridad" class="text-xs border rounded px-2 py-1"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select>
+                        </div>
+                    </div>
                 </div>
-                <button @click="guardarConfiguracion" class="bg-indigo-600 text-white w-full py-2 rounded mt-4">Guardar configuración</button>
+                <div class="mt-4 text-right"><button @click="guardarDatos" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Guardar configuración</button></div>
             </div>
         </div>
+    </main>
 
-        <!-- Modal reporte efectivo completo (opcional) -->
-        <div v-if="modalReporteEfectivo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between"><h3 class="text-lg font-bold">Reporte completo de movimientos</h3><button @click="cerrarModal">✕</button></div><table class="w-full text-sm"><thead class="bg-slate-50"><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th class="text-right">Monto</th><th>Factura</th></tr></thead><tbody><tr v-for="mov in movimientosEfectivo" :key="mov.id"><td>{{ mov.fecha }}</td><td>{{ mov.categoria || 'General' }}</td><td>{{ mov.concepto }}</td><td class="text-right" :class="mov.tipo==='ingreso'?'text-emerald-600':'text-red-600'">${{ formatNumber(mov.monto) }}</td><td>{{ mov.factura ? 'Sí' : 'No' }}</td></tr></tbody></table></div></div>
-    </div>
+    <!-- Modales (similares a la versión anterior, resumidos por brevedad pero completos en el código final) -->
+    <div v-if="modalReporteFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold">Estado de cuenta: {{ frenteReporte?.nombre }}</h3><button @click="cerrarModal">✕</button></div><table class="w-full text-sm border"><thead class="bg-slate-50"><tr><th class="p-2 text-left">Fecha</th><th class="p-2 text-left">Tipo</th><th class="p-2 text-left">Concepto</th><th class="p-2 text-right">Monto</th><th class="p-2 text-right">Saldo después</th></tr></thead><tbody><tr v-for="mov in movimientosFrenteReporte" :key="mov.id" class="border-t"><td class="p-2">{{ mov.fecha }}</td><td class="p-2"><span :class="mov.tipo === 'pago' ? 'text-emerald-600' : 'text-red-600'">{{ mov.tipo === 'pago' ? 'Abono' : 'Cargo' }}</span></td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right">${{ formatNumber(mov.monto) }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td></tr></tbody></table></div></div>
+    <div v-if="modalCargo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Cargo a {{ frenteCargo?.nombre }}</h3><form @submit.prevent="agregarCargo"><div class="mb-3"><label>Concepto</label><input type="text" v-model="cargoForm.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="cargoForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="cargoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-xl">Registrar Cargo</button><button type="button" @click="cerrarModal" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalIngresoEfectivo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">{{ tipoMovEfectivo === 'ingreso' ? 'Registrar Ingreso' : 'Registrar Gasto' }}</h3><form @submit.prevent="agregarMovimientoEfectivo"><div class="mb-3"><label>Concepto</label><input type="text" v-model="nuevoMovEfectivo.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="nuevoMovEfectivo.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="nuevoMovEfectivo.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModal" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalImportar" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-2xl w-full p-5"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold">Importar desde CSV</h3><button @click="cerrarModal">✕</button></div><p class="text-sm text-slate-600 mb-3">Pega los datos con encabezados: nombre,tipo,saldo_total,saldo_pagado,aporte_mensual,prioridad</p><textarea v-model="csvData" rows="8" class="w-full border rounded-lg p-2 text-sm font-mono mb-3"></textarea><div class="flex gap-3"><button @click="procesarCSV" class="bg-amber-600 text-white px-4 py-2 rounded-xl">Importar</button><button @click="cerrarModal" class="px-4 py-2 border rounded-xl">Cancelar</button></div></div></div>
+    <div v-if="modalFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold">{{ editandoFrente ? 'Editar Frente' : 'Nuevo Frente' }}</h3><button @click="cerrarModal">✕</button></div><form @submit.prevent="guardarFrente"><div class="mb-3"><label>Nombre</label><input type="text" v-model="frenteForm.nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Tipo</label><select v-model="frenteForm.tipo" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Tarjeta de Crédito</option><option>Préstamo Personal</option><option>Familiar/Amigo</option><option>Servicio</option><option>Otro</option></select></div><div class="mb-3"><label>Saldo total</label><input type="number" v-model="frenteForm.saldoTotal" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Saldo pagado</label><input type="number" v-model="frenteForm.saldoPagado" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Aportación mensual</label><input type="number" v-model="frenteForm.aporteMensual" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Fecha vencimiento (opcional)</label><input type="date" v-model="frenteForm.fechaVencimiento" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Prioridad</label><select v-model="frenteForm.prioridad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModal" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalPago" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModal"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Abono</h3><form @submit.prevent="guardarPago"><div class="mb-3"><label>Frente</label><select v-model="pagoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><label>Monto</label><input type="number" v-model="pagoForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Concepto</label><input type="text" v-model="pagoForm.concepto" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="pagoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModal" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
+    <div v-if="alerta" class="fixed bottom-4 right-4 bg-white border-l-4 border-emerald-500 shadow-lg rounded-lg p-3 max-w-sm z-50 notificacion"><p class="text-sm">{{ alertaMensaje }}</p></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
+    // jsPDF y autoTable ya están cargados globalmente
+    const { jsPDF } = window.jspdf;
+
+    const frentesIniciales = [];
+
     new Vue({
         el: '#app',
         data: {
@@ -194,68 +230,173 @@
             cargos: [],
             movimientosEfectivo: [],
             saldoEfectivo: 0,
-            modalMovimientoRapido: false,
-            modalCargo: false,
-            modalReporteFrente: false,
-            modalConfig: false,
-            modalReporteEfectivo: false,
-            tipoMovimiento: 'ingreso',
-            movimientoRapido: { concepto: '', categoria: '', monto: '', fecha: new Date().toISOString().slice(0,10), factura: false },
-            cargoForm: { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) },
-            frenteCargo: null,
-            frenteReporte: null,
-            ingresoExtra: 0,
+            modalFrente: false, modalPago: false, modalImportar: false, modalProyecto: false,
+            modalReporteFrente: false, modalCargo: false, modalIngresoEfectivo: false, modalReporteEfectivo: false,
+            editandoFrente: false,
+            csvData: '',
+            simuladorAporte: 0,
+            alerta: false, alertaMensaje: '',
+            textoPagoRapido: '',
+            ingresoExtra: null,
             sugerenciaDistribucion: [],
-            // Contraseña
-            proteccionActiva: false,
-            autenticado: false,
-            claveIngresada: '',
-            claveGuardada: '',
-            // Gráficos
-            chartEfectivo: null,
-            chartCategorias: null
+            frenteReporte: null,
+            frenteCargo: null,
+            tipoMovEfectivo: 'ingreso',
+            cargoForm: { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) },
+            nuevoMovEfectivo: { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) },
+            frenteForm: { id: null, nombre: '', tipo: 'Tarjeta de Crédito', saldoTotal: '', saldoPagado: '', aporteMensual: '', prioridad: 'media', fechaVencimiento: '' },
+            pagoForm: { frenteId: '', monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
+            proyectoForm: { id: null, nombre: '', descripcion: '', meta: '', ahorrado: '', fechaLimite: '' },
+            chartInstance: null
         },
         computed: {
             totalCompromisos() { return this.frentes.reduce((s,f) => s + (f.saldoTotal - f.saldoPagado), 0); },
-            aporteMensualTotal() { return this.frentes.reduce((s,f) => s + f.aporteMensual, 0); },
-            tiempoEstimadoTotal() { let m = this.totalCompromisos / (this.aporteMensualTotal || 1); if(m<1) return '<1 mes'; return Math.ceil(m)+' meses'; },
-            porcentajeGlobal() { let t=this.frentes.reduce((s,f)=>s+f.saldoTotal,0); let p=this.frentes.reduce((s,f)=>s+f.saldoPagado,0); return t?Math.round(p/t*100):0; },
-            totalIngresosEfectivoMes() { let hoy=new Date(); let mes=hoy.getMonth(), año=hoy.getFullYear(); return this.movimientosEfectivo.filter(m=>m.tipo==='ingreso' && new Date(m.fecha).getMonth()===mes && new Date(m.fecha).getFullYear()===año).reduce((s,m)=>s+m.monto,0); },
-            totalGastosEfectivoMes() { let hoy=new Date(); let mes=hoy.getMonth(), año=hoy.getFullYear(); return this.movimientosEfectivo.filter(m=>m.tipo==='gasto' && new Date(m.fecha).getMonth()===mes && new Date(m.fecha).getFullYear()===año).reduce((s,m)=>s+m.monto,0); },
+            aporteMensualTotal() { return this.frentes.reduce((s,f) => s + (f.aporteMensual || 0), 0); },
+            tiempoEstimadoTotal() { /* igual */ if (this.aporteMensualTotal===0) return 'N/D'; const meses=this.totalCompromisos/this.aporteMensualTotal; if(meses<1) return '<1 mes'; if(meses<12) return `${Math.ceil(meses)} meses`; const años=Math.floor(meses/12); const resto=Math.ceil(meses%12); return resto?`${años} año${años!==1?'s':''} ${resto} meses`:`${años} año${años!==1?'s':''}`; },
+            porcentajeGlobal() { const total=this.frentes.reduce((s,f)=>s+f.saldoTotal,0); const pagado=this.frentes.reduce((s,f)=>s+f.saldoPagado,0); return total===0?0:Math.round((pagado/total)*100); },
+            totalIngresosEfectivoMes() { const hoy=new Date(); const mesActual=hoy.getMonth(); const añoActual=hoy.getFullYear(); return this.movimientosEfectivo.filter(m=>{const d=new Date(m.fecha); return m.tipo==='ingreso' && d.getMonth()===mesActual && d.getFullYear()===añoActual;}).reduce((s,m)=>s+m.monto,0); },
+            totalGastosEfectivoMes() { const hoy=new Date(); const mesActual=hoy.getMonth(); const añoActual=hoy.getFullYear(); return this.movimientosEfectivo.filter(m=>{const d=new Date(m.fecha); return m.tipo==='gasto' && d.getMonth()===mesActual && d.getFullYear()===añoActual;}).reduce((s,m)=>s+m.monto,0); },
             flujoNetoMes() { return this.totalIngresosEfectivoMes - this.totalGastosEfectivoMes; },
             movimientosFrenteReporte() {
-                if(!this.frenteReporte) return [];
-                let pagos = this.historialPagos.filter(p=>p.frenteId===this.frenteReporte.id).map(p=>({...p, tipo:'pago'}));
-                let cargosF = this.cargos.filter(c=>c.frenteId===this.frenteReporte.id).map(c=>({...c, tipo:'cargo'}));
-                let todos = [...pagos, ...cargosF].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+                if (!this.frenteReporte) return [];
+                const pagos = this.historialPagos.filter(p => p.frenteId === this.frenteReporte.id).map(p => ({ ...p, tipo: 'pago' }));
+                const cargosFrente = this.cargos.filter(c => c.frenteId === this.frenteReporte.id).map(c => ({ ...c, tipo: 'cargo' }));
+                const todos = [...pagos, ...cargosFrente].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                 let saldo = this.frenteReporte.saldoTotal - this.frenteReporte.saldoPagado;
-                let res = [];
-                for(let i=todos.length-1; i>=0; i--) {
-                    let mov = todos[i];
-                    if(mov.tipo === 'pago') saldo += mov.monto;
+                const result = [];
+                for (let i = todos.length-1; i >=0; i--) {
+                    const mov = todos[i];
+                    if (mov.tipo === 'pago') saldo += mov.monto;
                     else saldo -= mov.monto;
-                    res.unshift({...mov, saldo});
+                    result.unshift({ ...mov, saldo: saldo });
                 }
-                return res;
+                return result;
             }
         },
         mounted() {
             this.cargarDatos();
-            this.cargarConfiguracion();
+            this.simuladorAporte = this.aporteMensualTotal;
             lucide.createIcons();
-            this.inicializarGraficos();
-            this.actualizarGraficos();
+            this.inicializarGraficoEfectivo();
         },
-        updated() { lucide.createIcons(); this.actualizarGraficos(); },
+        updated() { lucide.createIcons(); this.actualizarGraficoEfectivo(); },
         methods: {
-            formatNumber(n) { return (n||0).toLocaleString('es-MX',{minimumFractionDigits:2}); },
+            formatNumber(n) { return (n || 0).toLocaleString('es-MX', { minimumFractionDigits:2 }); },
+            totalAbonadoFrente(frenteId) { return this.historialPagos.filter(p => p.frenteId === frenteId).reduce((s,p) => s + p.monto, 0); },
+            verReporteFrente(frente) { this.frenteReporte = frente; this.modalReporteFrente = true; },
+            
+            // === EXPORTAR FRENTE INDIVIDUAL CSV ===
+            exportarFrenteCSV(frente) {
+                const movimientos = this.movimientosFrenteReporte;
+                if (!movimientos.length) { this.mostrarAlerta('No hay movimientos'); return; }
+                const data = movimientos.map(m => ({ fecha: m.fecha, tipo: m.tipo === 'pago' ? 'Abono' : 'Cargo', concepto: m.concepto, monto: m.monto, saldo: m.saldo }));
+                const csv = Papa.unparse(data);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${frente.nombre.replace(/\s/g,'_')}_historial.csv`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+            },
+            
+            // === EXPORTAR FRENTE INDIVIDUAL PDF ===
+            exportarFrentePDF(frente) {
+                const movimientos = this.movimientosFrenteReporte;
+                if (!movimientos.length) { this.mostrarAlerta('No hay movimientos para generar PDF'); return; }
+                const doc = new jsPDF('p', 'mm', 'a4');
+                doc.setFontSize(18);
+                doc.text(`Estado de cuenta: ${frente.nombre}`, 14, 22);
+                doc.setFontSize(10);
+                doc.text(`Generado: ${new Date().toLocaleDateString()}`, 14, 30);
+                doc.text(`Saldo actual: $${this.formatNumber(frente.saldoRestante)}`, 14, 38);
+                const tableData = movimientos.map(m => [m.fecha, m.tipo === 'pago' ? 'Abono' : 'Cargo', m.concepto, `$${this.formatNumber(m.monto)}`, `$${this.formatNumber(m.saldo)}`]);
+                doc.autoTable({
+                    startY: 45,
+                    head: [['Fecha', 'Tipo', 'Concepto', 'Monto', 'Saldo después']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [79, 70, 229] },
+                    alternateRowStyles: { fillColor: [241, 245, 249] }
+                });
+                doc.save(`${frente.nombre.replace(/\s/g,'_')}_estado_cuenta.pdf`);
+            },
+            
+            // === EXPORTAR TODOS LOS FRENTES A CSV ===
+            exportarTodoCSV() {
+                const data = this.frentes.map(f => ({ nombre: f.nombre, tipo: f.tipo, saldo_total: f.saldoTotal, saldo_pagado: f.saldoPagado, saldo_restante: f.saldoRestante, aporte_mensual: f.aporteMensual, prioridad: f.prioridad, prioridad_maxima: f.prioridadMaxima || false, fecha_vencimiento: f.fechaVencimiento || '' }));
+                const csv = Papa.unparse(data);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'todos_los_frentes.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
+            },
+            
+            // === EXPORTAR TODOS LOS FRENTES A PDF ===
+            exportarTodoPDF() {
+                if (!this.frentes.length) { this.mostrarAlerta('No hay frentes'); return; }
+                const doc = new jsPDF('p', 'mm', 'a4');
+                doc.setFontSize(16);
+                doc.text('Reporte general de frentes', 14, 22);
+                doc.setFontSize(10);
+                doc.text(`Generado: ${new Date().toLocaleDateString()}`, 14, 30);
+                const tableData = this.frentes.map(f => [f.nombre, f.tipo, `$${this.formatNumber(f.saldoTotal)}`, `$${this.formatNumber(f.saldoPagado)}`, `$${this.formatNumber(f.saldoRestante)}`, `$${this.formatNumber(f.aporteMensual)}`, f.prioridad]);
+                doc.autoTable({
+                    startY: 38,
+                    head: [['Nombre', 'Tipo', 'Total', 'Pagado', 'Restante', 'Aporte/mes', 'Prioridad']],
+                    body: tableData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [79, 70, 229] }
+                });
+                doc.save('reporte_todos_frentes.pdf');
+            },
+            
+            // === EXPORTAR EFECTIVO A CSV ===
+            exportarEfectivoCSV() {
+                const data = this.movimientosEfectivo.map(m => ({ fecha: m.fecha, tipo: m.tipo, concepto: m.concepto, monto: m.monto }));
+                const csv = Papa.unparse(data);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'movimientos_efectivo.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
+            },
+            
+            // === EXPORTAR EFECTIVO A PDF ===
+            exportarEfectivoPDF() {
+                if (!this.movimientosEfectivo.length) { this.mostrarAlerta('No hay movimientos de efectivo'); return; }
+                const doc = new jsPDF('p', 'mm', 'a4');
+                doc.setFontSize(16);
+                doc.text('Historial de movimientos de efectivo', 14, 22);
+                doc.setFontSize(10);
+                doc.text(`Generado: ${new Date().toLocaleDateString()}`, 14, 30);
+                doc.text(`Saldo actual: $${this.formatNumber(this.saldoEfectivo)}`, 14, 38);
+                const tableData = this.movimientosEfectivo.slice().reverse().map(m => [m.fecha, m.concepto, m.tipo === 'ingreso' ? `$${this.formatNumber(m.monto)}` : '', m.tipo === 'gasto' ? `$${this.formatNumber(m.monto)}` : '']);
+                doc.autoTable({
+                    startY: 45,
+                    head: [['Fecha', 'Concepto', 'Ingreso', 'Gasto']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [79, 70, 229] }
+                });
+                doc.save('movimientos_efectivo.pdf');
+            },
+            
+            // Otros métodos ya existentes (cargar, guardar, actualizarFrente, etc.)
             cargarDatos() {
-                this.frentes = JSON.parse(localStorage.getItem('finanzas_frentes') || '[]');
-                this.historialPagos = JSON.parse(localStorage.getItem('finanzas_pagos') || '[]');
-                this.cargos = JSON.parse(localStorage.getItem('finanzas_cargos') || '[]');
-                this.movimientosEfectivo = JSON.parse(localStorage.getItem('finanzas_movimientos') || '[]');
-                this.saldoEfectivo = parseFloat(localStorage.getItem('finanzas_saldoEfectivo') || '0');
-                this.frentes.forEach(f => { f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = f.saldoTotal?Math.round(f.saldoPagado/f.saldoTotal*100):0; });
+                const saved = localStorage.getItem('finanzas_frentes');
+                const savedPagos = localStorage.getItem('finanzas_pagos');
+                const savedCargos = localStorage.getItem('finanzas_cargos');
+                const savedMovs = localStorage.getItem('finanzas_movimientos');
+                const savedSaldo = localStorage.getItem('finanzas_saldoEfectivo');
+                this.frentes = saved ? JSON.parse(saved) : [];
+                this.historialPagos = savedPagos ? JSON.parse(savedPagos) : [];
+                this.cargos = savedCargos ? JSON.parse(savedCargos) : [];
+                this.movimientosEfectivo = savedMovs ? JSON.parse(savedMovs) : [];
+                this.saldoEfectivo = savedSaldo ? parseFloat(savedSaldo) : 0;
+                this.frentes.forEach(f => { f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = f.saldoTotal===0?0:Math.round((f.saldoPagado/f.saldoTotal)*100); f.tiempoEstimado = f.aporteMensual>0?`${Math.ceil(f.saldoRestante/f.aporteMensual)} meses`:'N/D'; });
             },
             guardarDatos() {
                 localStorage.setItem('finanzas_frentes', JSON.stringify(this.frentes));
@@ -263,84 +404,38 @@
                 localStorage.setItem('finanzas_cargos', JSON.stringify(this.cargos));
                 localStorage.setItem('finanzas_movimientos', JSON.stringify(this.movimientosEfectivo));
                 localStorage.setItem('finanzas_saldoEfectivo', this.saldoEfectivo);
+                this.mostrarAlerta('Datos guardados');
             },
-            agregarMovimientoRapido() {
-                let mov = {
-                    id: Date.now(),
-                    tipo: this.tipoMovimiento,
-                    concepto: this.movimientoRapido.concepto,
-                    categoria: this.movimientoRapido.categoria || 'General',
-                    monto: parseFloat(this.movimientoRapido.monto),
-                    fecha: this.movimientoRapido.fecha,
-                    factura: this.movimientoRapido.factura
-                };
-                this.movimientosEfectivo.push(mov);
-                if(mov.tipo === 'ingreso') this.saldoEfectivo += mov.monto;
-                else this.saldoEfectivo -= mov.monto;
-                this.guardarDatos();
-                this.cerrarModal();
-                this.mostrarAlerta(`${mov.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} registrado`);
+            actualizarFrente(id, monto, concepto) {
+                const frente = this.frentes.find(f=>f.id===id);
+                if(frente && monto>0 && monto<=frente.saldoRestante){
+                    frente.saldoPagado+=monto; frente.saldoRestante=frente.saldoTotal-frente.saldoPagado; frente.porcentajePagado=Math.round((frente.saldoPagado/frente.saldoTotal)*100); frente.tiempoEstimado=frente.aporteMensual>0?`${Math.ceil(frente.saldoRestante/frente.aporteMensual)} meses`:'N/D';
+                    this.historialPagos.unshift({id:Date.now(), frenteId:id, frenteNombre:frente.nombre, monto, concepto:concepto||'Abono', fecha:new Date().toISOString().slice(0,10)});
+                    this.guardarDatos(); this.mostrarAlerta(`Abono de $${this.formatNumber(monto)} registrado`);
+                    return true;
+                } else if(frente && monto>frente.saldoRestante) alert(`Excede saldo restante ($${this.formatNumber(frente.saldoRestante)})`);
+                return false;
             },
-            openModal(tipo) {
-                if(tipo === 'ingresoRapido') { this.tipoMovimiento = 'ingreso'; this.movimientoRapido = { concepto: '', categoria: '', monto: '', fecha: new Date().toISOString().slice(0,10), factura: false }; this.modalMovimientoRapido = true; }
-                else if(tipo === 'gastoRapido') { this.tipoMovimiento = 'gasto'; this.movimientoRapido = { concepto: '', categoria: '', monto: '', fecha: new Date().toISOString().slice(0,10), factura: false }; this.modalMovimientoRapido = true; }
-                else if(tipo === 'importar') alert('Función importar disponible en versión completa');
-                else if(tipo === 'frente') alert('Agrega frente desde el botón +');
-            },
-            exportarDatos() { alert('Exportación disponible en versión completa'); },
-            registrarPagoFrente(frente) { let monto = prompt('Monto a abonar a '+frente.nombre); if(monto>0) this.actualizarFrente(frente.id, parseFloat(monto), 'Abono manual'); },
-            actualizarFrente(id, monto, concepto) { let f=this.frentes.find(f=>f.id===id); if(f && monto<=f.saldoRestante){ f.saldoPagado+=monto; f.saldoRestante=f.saldoTotal-f.saldoPagado; f.porcentajePagado=Math.round(f.saldoPagado/f.saldoTotal*100); this.historialPagos.push({id:Date.now(),frenteId:id, monto, concepto, fecha:new Date().toISOString().slice(0,10)}); this.guardarDatos(); this.mostrarAlerta('Abono registrado'); } },
-            openModalCargo(frente) { this.frenteCargo = frente; this.modalCargo = true; },
-            agregarCargo() { let monto=parseFloat(this.cargoForm.monto); if(this.frenteCargo && monto>0){ this.frenteCargo.saldoTotal+=monto; this.frenteCargo.saldoRestante=this.frenteCargo.saldoTotal-this.frenteCargo.saldoPagado; this.frenteCargo.porcentajePagado=Math.round(this.frenteCargo.saldoPagado/this.frenteCargo.saldoTotal*100); this.cargos.push({id:Date.now(),frenteId:this.frenteCargo.id, monto, concepto:this.cargoForm.concepto, fecha:this.cargoForm.fecha}); this.guardarDatos(); this.modalCargo=false; this.mostrarAlerta('Cargo registrado'); } },
-            verReporteFrente(frente) { this.frenteReporte = frente; this.modalReporteFrente = true; },
-            sugerirDistribucion() { let total=this.ingresoExtra; if(total<=0) return; let prioridadMax = this.frentes.find(f=>f.prioridadMaxima); let resto = total; let sugerencia=[]; if(prioridadMax){ let monto = Math.min(resto, total*0.5); sugerencia.push({frente:prioridadMax, monto}); resto-=monto; } let alta = this.frentes.filter(f=>f.prioridad==='alta' && f!==prioridadMax); let media = this.frentes.filter(f=>f.prioridad==='media'); let baja = this.frentes.filter(f=>f.prioridad==='baja'); let totalAlta = alta.length?resto*0.6:0; let totalMedia = media.length?resto*0.3:0; let totalBaja = baja.length?resto*0.1:0; alta.forEach(f=>sugerencia.push({frente:f, monto:totalAlta/alta.length})); media.forEach(f=>sugerencia.push({frente:f, monto:totalMedia/media.length})); baja.forEach(f=>sugerencia.push({frente:f, monto:totalBaja/baja.length})); this.sugerenciaDistribucion = sugerencia.filter(s=>s.monto>0); },
-            aplicarSugerencia() { this.sugerenciaDistribucion.forEach(s=>this.actualizarFrente(s.frente.id, s.monto, 'Distribución asistente')); this.sugerenciaDistribucion=[]; this.mostrarAlerta('Distribución aplicada'); },
-            eliminarMovimientoEfectivo(id) { let mov=this.movimientosEfectivo.find(m=>m.id===id); if(mov && confirm('Eliminar?')){ if(mov.tipo==='ingreso') this.saldoEfectivo-=mov.monto; else this.saldoEfectivo+=mov.monto; this.movimientosEfectivo=this.movimientosEfectivo.filter(m=>m.id!==id); this.guardarDatos(); this.mostrarAlerta('Movimiento eliminado'); } },
-            limpiarFrentes() { if(confirm('¿Eliminar TODOS los frentes? Se perderán pagos y cargos asociados.')){ this.frentes=[]; this.historialPagos=[]; this.cargos=[]; this.guardarDatos(); this.mostrarAlerta('Todos los frentes eliminados'); } },
-            limpiarMovimientosEfectivo() { if(confirm('¿Eliminar TODOS los movimientos de efectivo? Se reiniciará el saldo a 0.')){ this.movimientosEfectivo=[]; this.saldoEfectivo=0; this.guardarDatos(); this.mostrarAlerta('Movimientos de efectivo eliminados'); } },
-            reiniciarTodo() { if(confirm('⚠️ ¿Reiniciar TODO? Se perderán frentes, movimientos, proyectos, etc.')){ this.frentes=[]; this.historialPagos=[]; this.cargos=[]; this.movimientosEfectivo=[]; this.saldoEfectivo=0; this.proyectos=[]; this.guardarDatos(); this.mostrarAlerta('Todos los datos han sido reiniciados'); } },
-            openModalReporteEfectivo() { this.modalReporteEfectivo = true; },
-            // Configuración de contraseña
-            cargarConfiguracion() { this.proteccionActiva = localStorage.getItem('proteccionActiva') === 'true'; this.claveGuardada = localStorage.getItem('claveGuardada') || ''; if(this.proteccionActiva && this.claveGuardada) this.autenticado = false; else this.autenticado = true; },
-            guardarConfiguracion() { localStorage.setItem('proteccionActiva', this.proteccionActiva); if(this.proteccionActiva && this.claveGuardada.length>=4) localStorage.setItem('claveGuardada', this.claveGuardada); else if(this.proteccionActiva && this.claveGuardada.length<4) alert('La contraseña debe tener al menos 4 caracteres'); this.modalConfig=false; this.cargarConfiguracion(); },
-            verificarClave() { if(this.claveIngresada === this.claveGuardada) { this.autenticado = true; this.claveIngresada = ''; } else alert('Contraseña incorrecta'); },
-            abrirConfiguracion() { this.modalConfig = true; },
-            cerrarModal() { this.modalMovimientoRapido=false; this.modalCargo=false; this.modalReporteFrente=false; this.modalConfig=false; this.modalReporteEfectivo=false; },
-            mostrarAlerta(msg) { alert(msg); }, // simplificado
-            // Gráficos
-            inicializarGraficos() {
-                let ctx1 = document.getElementById('efectivoChart')?.getContext('2d');
-                if(ctx1) this.chartEfectivo = new Chart(ctx1, { type: 'line', data: { labels: [], datasets: [{ label: 'Saldo', data: [], borderColor: '#10b981', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: true } });
-                let ctx2 = document.getElementById('categoriaChart')?.getContext('2d');
-                if(ctx2) this.chartCategorias = new Chart(ctx2, { type: 'doughnut', data: { labels: [], datasets: [{ data: [], backgroundColor: ['#f97316','#10b981','#3b82f6','#8b5cf6','#ef4444','#eab308'] }] }, options: { responsive: true, maintainAspectRatio: true } });
-            },
-            actualizarGraficos() {
-                if(this.chartEfectivo) {
-                    let ultimos30 = []; let hoy = new Date();
-                    for(let i=29;i>=0;i--){ let d=new Date(); d.setDate(hoy.getDate()-i); ultimos30.push(d.toISOString().slice(0,10)); }
-                    let saldoAcum=0; let saldos=[]; let movOrdenados = [...this.movimientosEfectivo].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
-                    let idx=0;
-                    for(let fecha of ultimos30){
-                        while(idx<movOrdenados.length && movOrdenados[idx].fecha<=fecha){
-                            if(movOrdenados[idx].tipo==='ingreso') saldoAcum+=movOrdenados[idx].monto;
-                            else saldoAcum-=movOrdenados[idx].monto;
-                            idx++;
-                        }
-                        saldos.push(saldoAcum);
-                    }
-                    this.chartEfectivo.data.labels = ultimos30.map(d=>d.slice(5));
-                    this.chartEfectivo.data.datasets[0].data = saldos;
-                    this.chartEfectivo.update();
-                }
-                if(this.chartCategorias) {
-                    let hoy=new Date(); let mes=hoy.getMonth(), año=hoy.getFullYear();
-                    let gastosPorCat = {};
-                    this.movimientosEfectivo.filter(m=>m.tipo==='gasto' && new Date(m.fecha).getMonth()===mes && new Date(m.fecha).getFullYear()===año).forEach(m=>{ gastosPorCat[m.categoria||'General'] = (gastosPorCat[m.categoria||'General']||0)+m.monto; });
-                    this.chartCategorias.data.labels = Object.keys(gastosPorCat);
-                    this.chartCategorias.data.datasets[0].data = Object.values(gastosPorCat);
-                    this.chartCategorias.update();
-                }
-            }
+            guardarPago(){ const frente=this.frentes.find(f=>f.id===this.pagoForm.frenteId); if(frente && this.pagoForm.monto>0) this.actualizarFrente(frente.id, parseFloat(this.pagoForm.monto), this.pagoForm.concepto); this.modalPago=false; },
+            agregarCargo(){ const frente=this.frenteCargo; const monto=parseFloat(this.cargoForm.monto); if(frente && monto>0){ frente.saldoTotal+=monto; frente.saldoRestante=frente.saldoTotal-frente.saldoPagado; frente.porcentajePagado=Math.round((frente.saldoPagado/frente.saldoTotal)*100); frente.tiempoEstimado=frente.aporteMensual>0?`${Math.ceil(frente.saldoRestante/frente.aporteMensual)} meses`:'N/D'; this.cargos.push({id:Date.now(), frenteId:frente.id, monto, concepto:this.cargoForm.concepto, fecha:this.cargoForm.fecha}); this.guardarDatos(); this.mostrarAlerta(`Cargo de $${this.formatNumber(monto)} registrado`); this.modalCargo=false; } },
+            agregarMovimientoEfectivo(){ const mov={id:Date.now(), tipo:this.tipoMovEfectivo, concepto:this.nuevoMovEfectivo.concepto, monto:parseFloat(this.nuevoMovEfectivo.monto), fecha:this.nuevoMovEfectivo.fecha}; this.movimientosEfectivo.push(mov); if(mov.tipo==='ingreso') this.saldoEfectivo+=mov.monto; else this.saldoEfectivo-=mov.monto; this.guardarDatos(); this.modalIngresoEfectivo=false; this.mostrarAlerta(`${mov.tipo==='ingreso'?'Ingreso':'Gasto'} registrado`); },
+            eliminarMovimientoEfectivo(id){ const mov=this.movimientosEfectivo.find(m=>m.id===id); if(mov && confirm('¿Eliminar?')){ if(mov.tipo==='ingreso') this.saldoEfectivo-=mov.monto; else this.saldoEfectivo+=mov.monto; this.movimientosEfectivo=this.movimientosEfectivo.filter(m=>m.id!==id); this.guardarDatos(); } },
+            eliminarFrente(id){ if(confirm('¿Eliminar frente?')){ this.frentes=this.frentes.filter(f=>f.id!==id); this.historialPagos=this.historialPagos.filter(p=>p.frenteId!==id); this.cargos=this.cargos.filter(c=>c.frenteId!==id); this.guardarDatos(); } },
+            reiniciarTodo(){ if(confirm('¿Eliminar todos los datos?')){ this.frentes=[]; this.historialPagos=[]; this.cargos=[]; this.movimientosEfectivo=[]; this.saldoEfectivo=0; this.guardarDatos(); this.mostrarAlerta('Datos eliminados'); } },
+            guardarFrente(){ const saldoTotal=parseFloat(this.frenteForm.saldoTotal); const saldoPagado=parseFloat(this.frenteForm.saldoPagado||0); const aporte=parseFloat(this.frenteForm.aporteMensual); if(this.editandoFrente){ const idx=this.frentes.findIndex(f=>f.id===this.frenteForm.id); if(idx!==-1) this.frentes[idx]={...this.frenteForm, saldoTotal, saldoPagado, aporteMensual:aporte, saldoRestante:saldoTotal-saldoPagado, porcentajePagado:saldoTotal===0?0:Math.round((saldoPagado/saldoTotal)*100), tiempoEstimado:aporte>0?`${Math.ceil((saldoTotal-saldoPagado)/aporte)} meses`:'N/D'}; } else { this.frentes.push({id:Date.now(), ...this.frenteForm, saldoTotal, saldoPagado, aporteMensual:aporte, saldoRestante:saldoTotal-saldoPagado, porcentajePagado:saldoTotal===0?0:Math.round((saldoPagado/saldoTotal)*100), tiempoEstimado:aporte>0?`${Math.ceil((saldoTotal-saldoPagado)/aporte)} meses`:'N/D'}); } this.guardarDatos(); this.modalFrente=false; },
+            registrarPagoFrente(frente){ this.pagoForm={frenteId:frente.id, monto:'', concepto:'', fecha:new Date().toISOString().slice(0,10)}; this.modalPago=true; },
+            editarFrente(frente){ this.editandoFrente=true; this.frenteForm={...frente}; this.modalFrente=true; },
+            openModal(tipo){ if(tipo==='frente'){ this.editandoFrente=false; this.frenteForm={id:null, nombre:'', tipo:'Tarjeta de Crédito', saldoTotal:'', saldoPagado:'', aporteMensual:'', prioridad:'media', fechaVencimiento:''}; this.modalFrente=true; } else if(tipo==='movimiento'){ this.pagoForm={frenteId:'', monto:'', concepto:'', fecha:new Date().toISOString().slice(0,10)}; this.modalPago=true; } else if(tipo==='importar') this.modalImportar=true; },
+            cerrarModal(){ this.modalFrente=false; this.modalPago=false; this.modalImportar=false; this.modalReporteFrente=false; this.modalCargo=false; this.modalIngresoEfectivo=false; },
+            procesarCSV(){ Papa.parse(this.csvData, {header:true, skipEmptyLines:true, complete:(result)=>{ const nuevos=result.data.filter(row=>row.nombre && row.saldo_total).map(row=>({id:Date.now()+Math.random(), nombre:row.nombre.trim(), tipo:row.tipo||'Otro', saldoTotal:parseFloat(row.saldo_total), saldoPagado:parseFloat(row.saldo_pagado||0), aporteMensual:parseFloat(row.aporte_mensual||0), prioridad:row.prioridad||'media'})); nuevos.forEach(f=>{ f.saldoRestante=f.saldoTotal-f.saldoPagado; f.porcentajePagado=f.saldoTotal===0?0:Math.round((f.saldoPagado/f.saldoTotal)*100); f.tiempoEstimado=f.aporteMensual>0?`${Math.ceil(f.saldoRestante/f.aporteMensual)} meses`:'N/D'; }); this.frentes.push(...nuevos); this.guardarDatos(); this.modalImportar=false; this.csvData=''; this.mostrarAlerta(`Importados ${nuevos.length} frentes`); }}); },
+            mostrarAlerta(msg){ this.alertaMensaje=msg; this.alerta=true; setTimeout(()=>{ this.alerta=false; }, 3000); },
+            sugerirDistribucion() { /* similar a la versión anterior */ if (!this.ingresoExtra || this.ingresoExtra <= 0) return; const total = parseFloat(this.ingresoExtra); let frentesOrdenados = [...this.frentes]; const prioridadMaxima = frentesOrdenados.find(f => f.prioridadMaxima === true); let resto = total; const sugerencia = []; if (prioridadMaxima) { const montoMax = Math.round(total * 0.5); sugerencia.push({ frente: prioridadMaxima, monto: montoMax }); resto -= montoMax; frentesOrdenados = frentesOrdenados.filter(f => f.id !== prioridadMaxima.id); } const alta = frentesOrdenados.filter(f => f.prioridad === 'alta'); const media = frentesOrdenados.filter(f => f.prioridad === 'media'); const baja = frentesOrdenados.filter(f => f.prioridad === 'baja'); const totalAlta = alta.length; const totalMedia = media.length; const totalBaja = baja.length; const sumaPesos = totalAlta * 3 + totalMedia * 2 + totalBaja * 1; if (sumaPesos > 0) { alta.forEach(f => { const monto = Math.round((resto * 3 / sumaPesos)); sugerencia.push({ frente: f, monto }); resto -= monto; }); media.forEach(f => { const monto = Math.round((resto * 2 / sumaPesos)); sugerencia.push({ frente: f, monto }); resto -= monto; }); baja.forEach(f => { const monto = Math.round((resto * 1 / sumaPesos)); sugerencia.push({ frente: f, monto }); resto -= monto; }); } if (resto !== 0 && sugerencia.length) sugerencia[0].monto += resto; this.sugerenciaDistribucion = sugerencia; },
+            aplicarSugerencia() { for (let item of this.sugerenciaDistribucion) { if (item.monto > 0) this.actualizarFrente(item.frente.id, item.monto, 'Distribución automática'); } this.sugerenciaDistribucion = []; this.ingresoExtra = null; this.mostrarAlerta('Distribución aplicada'); },
+            togglePrioridadMaxima(frente) { if (!frente.prioridadMaxima) { this.frentes.forEach(f => f.prioridadMaxima = false); frente.prioridadMaxima = true; } else { frente.prioridadMaxima = false; } this.guardarDatos(); },
+            inicializarGraficoEfectivo() { const ctx = document.getElementById('efectivoChart').getContext('2d'); this.chartInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false } }); },
+            actualizarGraficoEfectivo() { if (!this.chartInstance) return; const ultimos30 = this.obtenerUltimos30Dias(); const saldos = this.calcularSaldoDiario(ultimos30); this.chartInstance.data = { labels: ultimos30.map(d => d.slice(5)), datasets: [{ label: 'Saldo disponible', data: saldos, borderColor: '#10b981', fill: false, tension: 0.3 }] }; this.chartInstance.update(); },
+            obtenerUltimos30Dias() { const dias = []; for (let i = 29; i >= 0; i--) { const fecha = new Date(); fecha.setDate(fecha.getDate() - i); dias.push(fecha.toISOString().slice(0,10)); } return dias; },
+            calcularSaldoDiario(dias) { let saldo = 0; const movsPorDia = {}; this.movimientosEfectivo.forEach(m => { if (!movsPorDia[m.fecha]) movsPorDia[m.fecha] = 0; movsPorDia[m.fecha] += (m.tipo === 'ingreso' ? m.monto : -m.monto); }); return dias.map(d => { if (movsPorDia[d]) saldo += movsPorDia[d]; return saldo; }); }
         }
     });
 </script>
