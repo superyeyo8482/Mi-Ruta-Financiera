@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Mi Ruta Financiera | Dashboard Definitivo</title>
+    <title>Mi Ruta Financiera | Edición Legendaria</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -12,40 +12,41 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Inter', sans-serif; }
         .card { transition: all 0.2s ease; }
         .card:hover { transform: translateY(-2px); }
         .modal { transition: all 0.3s ease; }
-        .pdf-reporte { padding: 20px; font-family: 'Inter', sans-serif; background: white; }
-        .pdf-reporte table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        .pdf-reporte th, .pdf-reporte td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        .pdf-reporte th { background-color: #f0f0f0; }
-        .poder-oculto-btn { background: linear-gradient(135deg, gold, orange); animation: brillar 1s infinite; }
-        @keyframes brillar { 0% { box-shadow: 0 0 5px gold; } 50% { box-shadow: 0 0 20px orange; } 100% { box-shadow: 0 0 5px gold; } }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ataque-btn { background: linear-gradient(135deg, #ff416c, #ff4b2b); animation: palpitar 1s infinite; }
+        @keyframes palpitar { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body class="bg-slate-50">
 
-<!-- Pantalla de carga (se oculta después de autenticar) -->
 <div id="loadingScreen" class="fixed inset-0 bg-white flex items-center justify-center z-50 flex-col">
     <div class="loader"></div>
     <p class="mt-4 text-slate-600">Cargando aplicación...</p>
 </div>
 
 <div id="app" style="display: none;" class="min-h-screen p-4 md:p-6">
-    <!-- Header -->
     <header class="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-3">
-                <i data-lucide="compass" id="logoEasterEgg" class="text-indigo-600 cursor-pointer"></i> Mi Ruta Financiera
-            </h1>
-            <p class="text-slate-500 text-sm">Frentes • Efectivo • Metas • Presupuesto • Bienestar</p>
+        <div class="flex items-center gap-3">
+            <div id="logoContainer" class="cursor-pointer" @click="cambiarLogo">
+                <img v-if="logoUrl" :src="logoUrl" class="h-10 w-10 rounded-full object-cover" alt="Logo">
+                <i v-else data-lucide="compass" id="logoEasterEgg" class="text-indigo-600" style="font-size: 2rem;"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Mi Ruta Financiera</h1>
+                <p class="text-slate-500 text-sm">Frentes • Efectivo • Metas • Presupuesto • Bienestar</p>
+            </div>
         </div>
         <div class="flex flex-wrap gap-2">
+            <button @click="cambiarColorPrimario" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="palette" size="14"></i> Tema</button>
+            <button @click="abrirModalSeguridad" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="shield" size="14"></i> Seguridad</button>
             <button @click="cambiarContrasena" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="key" size="14"></i> Cambiar contraseña</button>
             <button @click="exportarPDFGeneral" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="file-pdf" size="16"></i> PDF General</button>
             <button @click="abrirModalImportar" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="upload" size="16"></i> Importar CSV</button>
@@ -56,20 +57,14 @@
     </header>
 
     <main class="max-w-7xl mx-auto">
-        <!-- KPIs (incluyendo nivel y XP) -->
+        <!-- KPIs -->
         <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
             <div id="kpiTotalFrentes" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer"><div class="flex justify-between items-start mb-2"><span class="text-slate-500 text-xs font-medium">💰 Total Frentes</span><div class="bg-amber-100 p-1.5 rounded-lg text-amber-600"><i data-lucide="target" size="14"></i></div></div><h2 class="text-xl font-bold text-amber-700">${{ formatNumber(totalFrentes) }}</h2><p class="text-[10px] text-slate-400 mt-1">{{ frentes.length }} activos</p></div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><div class="flex justify-between items-start mb-2"><span class="text-slate-500 text-xs font-medium">📅 Aportación Mensual</span><div class="bg-emerald-100 p-1.5 rounded-lg text-emerald-600"><i data-lucide="calendar" size="14"></i></div></div><h2 class="text-xl font-bold text-emerald-600">${{ formatNumber(aporteMensualTotal) }}</h2><p class="text-[10px] text-slate-400 mt-1">Capacidad de pago</p></div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><div class="flex justify-between items-start mb-2"><span class="text-slate-500 text-xs font-medium">⏱️ Tiempo Estimado</span><div class="bg-blue-100 p-1.5 rounded-lg text-blue-600"><i data-lucide="clock" size="14"></i></div></div><h2 class="text-xl font-bold text-blue-600">{{ tiempoEstimadoTotal }}</h2><p class="text-[10px] text-slate-400 mt-1">hasta libertad financiera</p></div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"><div class="flex justify-between items-start mb-2"><span class="text-slate-500 text-xs font-medium">🎯 Progreso Global</span><div class="bg-indigo-100 p-1.5 rounded-lg text-indigo-600"><i data-lucide="trending-up" size="14"></i></div></div><h2 class="text-xl font-bold text-indigo-600">{{ porcentajeGlobal }}%</h2><div class="w-full bg-slate-200 h-1.5 rounded-full mt-2"><div class="bg-indigo-500 h-full rounded-full" :style="{ width: porcentajeGlobal + '%' }"></div></div></div>
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-emerald-500"><div class="flex justify-between items-start mb-2"><span class="text-slate-500 text-xs font-medium">💰 Superávit / Déficit</span><div class="bg-emerald-100 p-1.5 rounded-lg" :class="superavit >=0 ? 'text-emerald-600' : 'text-red-600'"><i data-lucide="trending-up" size="14"></i></div></div><h2 class="text-xl font-bold" :class="superavit >=0 ? 'text-emerald-600' : 'text-red-600'">${{ formatNumber(superavit) }}</h2><p class="text-[10px] text-slate-400 mt-1">{{ porcentajeCobertura }}% de gastos base cubiertos</p></div>
-            <!-- Nivel y XP -->
-            <div class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4 rounded-xl shadow-sm">
-                <div class="flex justify-between items-start mb-1"><span class="text-xs font-medium">🏆 Nivel</span><span class="text-xs">{{ nivelActual }}</span></div>
-                <div class="text-2xl font-bold">{{ nivelActual }}</div>
-                <div class="w-full bg-white/30 h-1.5 rounded-full mt-2"><div class="bg-yellow-300 h-full rounded-full" :style="{ width: (xpActual / xpSiguienteNivel)*100 + '%' }"></div></div>
-                <p class="text-[9px] mt-1">{{ xpActual }} / {{ xpSiguienteNivel }} XP</p>
-            </div>
+            <div class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4 rounded-xl shadow-sm"><div class="flex justify-between items-start mb-1"><span class="text-xs font-medium">🏆 Nivel</span><span class="text-xs">{{ nivelActual }}</span></div><div class="text-2xl font-bold">{{ nivelActual }}</div><div class="w-full bg-white/30 h-1.5 rounded-full mt-2"><div class="bg-yellow-300 h-full rounded-full" :style="{ width: (xpActual / (nivelActual * 500)) * 100 + '%' }"></div></div><p class="text-[9px] mt-1">{{ xpActual }} / {{ nivelActual * 500 }} XP</p></div>
         </div>
 
         <!-- Pestañas -->
@@ -80,6 +75,7 @@
             <button @click="pestañaActiva = 'presupuesto'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'presupuesto'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">Presupuesto</button>
             <button @click="pestañaActiva = 'bienestar'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'bienestar'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">🌟 Bienestar</button>
             <button @click="pestañaActiva = 'asistente'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'asistente'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">Asistente</button>
+            <button @click="pestañaActiva = 'seguridad'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'seguridad'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">🔒 Seguridad</button>
         </div></div>
 
         <!-- ======================= FRENTES ======================= -->
@@ -100,6 +96,8 @@
                             <button @click="verHistorialFrente(frente)" class="text-slate-500 p-1.5" title="Historial"><i data-lucide="file-text" size="16"></i></button>
                             <button @click="editarFrente(frente)" class="text-slate-400 p-1.5"><i data-lucide="edit-2" size="14"></i></button>
                             <button @click="eliminarFrente(frente.id)" class="text-red-400 p-1.5"><i data-lucide="trash-2" size="14"></i></button>
+                            <!-- Botón Ataque Especial (solo si easter egg activado y no usado esta semana) -->
+                            <button v-if="poderOcultoActivado && !ataqueUsadoEstaSemana(frente.id)" @click="ataqueEspecial(frente)" class="ataque-btn text-white text-xs py-1 px-2 rounded-lg flex items-center gap-1">⚡ Ataque (-5%)</button>
                         </div>
                     </div>
                 </div>
@@ -137,104 +135,102 @@
                 <tr v-for="gasto in gastosBase" :key="gasto.id"><td class="p-3">{{ gasto.nombre }}</td><td class="p-3">{{ gasto.categoria }}</td><td class="p-3 text-right">${{ formatNumber(gasto.monto) }}</td><td class="p-3">{{ gasto.periodicidad }}</td><td class="p-3 text-right font-medium">${{ formatNumber(gasto.montoMensual) }}</td><td class="p-3 text-center"><button @click="editarGastoBase(gasto)" class="text-blue-500 mr-2"><i data-lucide="edit-2" size="14"></i></button><button @click="eliminarGastoBase(gasto.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr>
                 <tr v-if="gastosBase.length===0"><td colspan="6" class="p-6 text-center">No hay gastos definidos.</td></tr>
             </tbody></table></div>
-            <div class="mt-8 bg-white rounded-xl shadow-sm p-4"><h3 class="font-bold text-lg mb-3">📉 Evolución últimos 6 meses</h3><canvas id="historialPresupuestoChart" height="200"></canvas><div class="overflow-x-auto mt-4"><table class="w-full text-xs"><thead><tr><th>Mes</th><th class="text-right">Ingresos</th><th class="text-right">Gastos Base</th><th class="text-right">Superávit</th><th>Cobertura</th></tr></thead><tbody><tr v-for="item in historialPresupuesto" :key="item.mesKey"><td>{{ item.nombre }}</td><td class="text-right">${{ formatNumber(item.ingresos) }}</td><td class="text-right">${{ formatNumber(item.gastos) }}</td><td class="text-right" :class="item.superavit>=0?'text-emerald-600':'text-red-600'">${{ formatNumber(item.superavit) }}</td><td>{{ item.porcentajeCobertura }}%</td></tr></tbody></table></div></div>
+            <div class="mt-8 bg-white rounded-xl shadow-sm p-4"><h3 class="font-bold text-lg mb-3">📉 Evolución últimos 6 meses</h3><canvas id="historialPresupuestoChart" height="200"></canvas><div class="overflow-x-auto mt-4"><table class="w-full text-xs"><thead><tr><th>Mes</th><th class="text-right">Ingresos</th><th class="text-right">Gastos Base</th><th class="text-right">Superávit</th><th>Cobertura</th></tr></thead><tbody><tr v-for="item in historialPresupuesto" :key="item.mesKey"><td class="p-2">{{ item.nombre }}</td><td class="p-2 text-right">${{ formatNumber(item.ingresos) }}</td><td class="p-2 text-right">${{ formatNumber(item.gastos) }}</td><td class="p-2 text-right" :class="item.superavit>=0?'text-emerald-600':'text-red-600'">${{ formatNumber(item.superavit) }}</td><td class="p-2">{{ item.porcentajeCobertura }}%</td></tr></tbody></table></div></div>
         </div>
 
         <!-- ======================= BIENESTAR ======================= -->
         <div v-show="pestañaActiva === 'bienestar'">
-            <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-                <h3 class="text-xl font-bold mb-3 flex items-center gap-2"><i data-lucide="smile" class="text-yellow-500"></i> ¿Cómo te sientes hoy financieramente?</h3>
-                <div class="flex gap-4 justify-center my-4">
-                    <button @click="registrarHumor('feliz')" class="text-4xl p-2 hover:scale-110 transition">😊</button>
-                    <button @click="registrarHumor('neutral')" class="text-4xl p-2 hover:scale-110 transition">😐</button>
-                    <button @click="registrarHumor('estresado')" class="text-4xl p-2 hover:scale-110 transition">😞</button>
-                </div>
-                <textarea v-model="notaHoy" placeholder="Escribe una nota (opcional)..." rows="2" class="w-full border rounded-lg p-2 text-sm"></textarea>
-                <button @click="guardarRegistroHumor" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Guardar registro de hoy</button>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-                <h3 class="font-bold text-lg mb-3">📈 Evolución de tu estado de ánimo</h3>
-                <canvas id="humorChart" height="150"></canvas>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-5">
-                <h3 class="font-bold text-lg mb-3 flex items-center gap-2"><i data-lucide="trophy" class="text-amber-500"></i> Rincón de Celebración</h3>
-                <div v-if="logros.length === 0" class="text-center py-6 text-slate-400">Aún no hay logros. ¡Cuando liquides un frente o alcances una meta, lo celebrará!</div>
-                <div v-else class="space-y-2">
-                    <div v-for="logro in logros.slice().reverse()" :key="logro.id" class="p-3 bg-amber-50 rounded-lg border-l-4 border-amber-500">
-                        <p class="font-medium">{{ logro.mensaje }}</p>
-                        <p class="text-xs text-slate-500">{{ logro.fecha }}</p>
-                    </div>
-                </div>
-            </div>
-            <div v-if="poderOcultoActivado" class="mt-6 text-center">
-                <button @click="otorgar1000XP" class="poder-oculto-btn text-black font-bold px-6 py-3 rounded-full shadow-lg transition transform hover:scale-105">
-                    ⚡ ¡Poder Oculto! +1000 XP ⚡
-                </button>
-                <p class="text-xs text-slate-400 mt-2">Usa este poder una vez al día. ¡No abuses!</p>
-            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="text-xl font-bold mb-3"><i data-lucide="smile" class="text-yellow-500"></i> ¿Cómo te sientes hoy?</h3><div class="flex gap-4 justify-center my-4"><button @click="registrarHumor('feliz')" class="text-4xl p-2 hover:scale-110">😊</button><button @click="registrarHumor('neutral')" class="text-4xl p-2 hover:scale-110">😐</button><button @click="registrarHumor('estresado')" class="text-4xl p-2 hover:scale-110">😞</button></div><textarea v-model="notaHoy" placeholder="Nota (opcional)..." rows="2" class="w-full border rounded-lg p-2 text-sm"></textarea><button @click="guardarRegistroHumor" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Guardar registro de hoy</button></div>
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="font-bold text-lg mb-3">📈 Evolución de tu estado de ánimo</h3><canvas id="humorChart" height="150"></canvas></div>
+            <div class="bg-white rounded-xl shadow-sm p-5"><h3 class="font-bold text-lg mb-3"><i data-lucide="trophy" class="text-amber-500"></i> Rincón de Celebración</h3><div v-if="logros.length === 0" class="text-center py-6 text-slate-400">Aún no hay logros.</div><div v-else class="space-y-2"><div v-for="logro in logros.slice().reverse()" :key="logro.id" class="p-3 bg-amber-50 rounded-lg border-l-4 border-amber-500"><p class="font-medium">{{ logro.mensaje }}</p><p class="text-xs text-slate-500">{{ logro.fecha }}</p></div></div></div>
+            <div v-if="poderOcultoActivado" class="mt-6 text-center"><button @click="otorgar1000XP" class="poder-oculto-btn text-black font-bold px-6 py-3 rounded-full shadow-lg">⚡ ¡Poder Oculto! +1000 XP ⚡</button><p class="text-xs text-slate-400 mt-2">Una vez al día.</p></div>
         </div>
 
         <!-- ======================= ASISTENTE ======================= -->
         <div v-show="pestañaActiva === 'asistente'">
-            <div class="bg-white rounded-xl shadow-sm p-6 mb-6"><h3 class="text-xl font-bold mb-2"><i data-lucide="zap" class="text-amber-500"></i> Asistente de Distribución de Ingresos Extra</h3><p class="text-slate-500 mb-4">Ingresa un monto extra y te sugeriremos cómo distribuirlo entre tus frentes según prioridades.</p><div class="flex flex-col sm:flex-row gap-4"><input type="number" v-model="ingresoExtra" placeholder="Monto extra" class="border rounded-lg px-3 py-2 flex-1"><button @click="generarSugerencia" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Generar sugerencia</button></div><div v-if="sugerencia.length" class="mt-6 bg-slate-50 p-4 rounded-lg"><h4 class="font-bold mb-2">📋 Propuesta de distribución:</h4><div v-for="item in sugerencia" :key="item.frente.id" class="flex justify-between items-center border-b py-2"><span><strong>{{ item.frente.nombre }}</strong> {{ item.frente.prioridadMaxima ? '⭐ Prioridad máxima' : '' }}</span><span class="font-bold text-emerald-600">${{ formatNumber(item.monto) }}</span></div><div class="mt-4 pt-2 border-t flex justify-end gap-2"><button @click="aplicarSugerencia" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">Aplicar distribución</button><button @click="sugerencia = []" class="border rounded-lg px-4 py-2">Cancelar</button></div></div></div>
-            <div class="bg-white rounded-xl shadow-sm p-6"><h3 class="text-xl font-bold mb-4"><i data-lucide="settings"></i> Configuración de prioridades</h3><p class="text-slate-500 mb-4">Define qué frente debe tener prioridad máxima (solo uno).</p><div class="space-y-2"><div v-for="frente in frentes" :key="frente.id" class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>{{ frente.nombre }}</span><div class="flex gap-2"><button @click="alternarPrioridadMaxima(frente)" :class="frente.prioridadMaxima ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-bold">⭐ Prioridad Máxima</button><select v-model="frente.prioridad" class="text-xs border rounded px-2 py-1"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div></div></div><div class="mt-4 text-right"><button @click="guardarDatos" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Guardar configuración</button></div></div>
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6"><h3 class="text-xl font-bold mb-2"><i data-lucide="zap" class="text-amber-500"></i> Asistente de Distribución</h3><div class="flex flex-col sm:flex-row gap-4"><input type="number" v-model="ingresoExtra" placeholder="Monto extra" class="border rounded-lg px-3 py-2 flex-1"><button @click="generarSugerencia" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Generar sugerencia</button></div><div v-if="sugerencia.length" class="mt-6 bg-slate-50 p-4 rounded-lg"><h4 class="font-bold mb-2">Propuesta:</h4><div v-for="item in sugerencia" :key="item.frente.id" class="flex justify-between border-b py-2"><span><strong>{{ item.frente.nombre }}</strong> {{ item.frente.prioridadMaxima ? '⭐' : '' }}</span><span class="font-bold text-emerald-600">${{ formatNumber(item.monto) }}</span></div><div class="mt-4 flex justify-end gap-2"><button @click="aplicarSugerencia" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">Aplicar</button><button @click="sugerencia = []" class="border rounded-lg px-4 py-2">Cancelar</button></div></div></div>
+            <div class="bg-white rounded-xl shadow-sm p-6"><h3 class="text-xl font-bold mb-4"><i data-lucide="settings"></i> Prioridades</h3><div class="space-y-2"><div v-for="frente in frentes" :key="frente.id" class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>{{ frente.nombre }}</span><div class="flex gap-2"><button @click="alternarPrioridadMaxima(frente)" :class="frente.prioridadMaxima ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-bold">⭐ Máxima</button><select v-model="frente.prioridad" class="text-xs border rounded px-2 py-1"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div></div></div><div class="mt-4 text-right"><button @click="guardarDatos" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Guardar configuración</button></div></div>
+        </div>
+
+        <!-- ======================= SEGURIDAD ======================= -->
+        <div v-show="pestañaActiva === 'seguridad'">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="shield" class="text-green-600"></i> Seguridad de los datos</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between border-b pb-3"><div><p class="font-medium">Cifrado de datos locales</p><p class="text-xs text-slate-500">Los datos se guardan cifrados en tu navegador (AES).</p></div><button @click="toggleCifrado" class="px-3 py-1 rounded-lg text-sm" :class="cifradoActivo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">{{ cifradoActivo ? 'Activo' : 'Inactivo' }}</button></div>
+                    <div class="flex items-center justify-between border-b pb-3"><div><p class="font-medium">PIN de acceso de 6 dígitos (2FA)</p><p class="text-xs text-slate-500">Pide un PIN adicional después de la contraseña.</p></div><button @click="configurarPIN" class="px-3 py-1 rounded-lg text-sm" :class="pinActivado ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'">{{ pinActivado ? 'PIN activado' : 'Configurar PIN' }}</button></div>
+                    <div class="flex items-center justify-between"><div><p class="font-medium">Exportar copia de seguridad</p><p class="text-xs text-slate-500">Descarga un archivo cifrado con todos tus datos.</p></div><button @click="exportarCopiaSeguridad" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm">Exportar</button></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6"><h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="paintbrush" class="text-purple-600"></i> Personalización visual</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Logo personalizado (URL)</label><div class="flex gap-2"><input type="text" v-model="logoUrlInput" placeholder="https://.../logo.png" class="flex-1 border rounded-lg px-3 py-2 text-sm"><button @click="actualizarLogo" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm">Cargar</button></div><p class="text-xs text-slate-400 mt-1">Pega la URL de una imagen cuadrada.</p></div><div><label class="block text-sm font-medium mb-1">Color primario</label><input type="color" v-model="colorPrimario" @change="cambiarColorPrimario" class="w-full h-10 border rounded-lg"><p class="text-xs text-slate-400 mt-1">Cambia el color de los botones principales.</p></div></div></div>
         </div>
     </main>
 
-    <!-- Modales (simplificados pero funcionales) -->
-    <div v-if="modalHistorial" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Historial: {{ frenteActual?.nombre }}</h3><button @click="cerrarModales">✕</button></div><table class="w-full text-sm border"><thead><tr><th class="p-2">Fecha</th><th>Tipo</th><th>Concepto</th><th class="text-right">Monto</th><th class="text-right">Saldo después</th><th></th></tr></thead><tbody><tr v-for="mov in historialMovimientos" :key="mov.id"><td class="p-2">{{ mov.fecha }}</td><td class="p-2"><span :class="mov.tipo==='abono'?'text-emerald-600':'text-red-600'">{{ mov.tipo==='abono'?'Abono':'Cargo' }}</span></td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right">${{ formatNumber(mov.monto) }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td><td class="p-2 text-center"><button @click="editarMovimiento(mov)" class="text-blue-500 mr-2"><i data-lucide="edit-2" size="14"></i></button><button @click="eliminarMovimientoFrente(mov.id,mov.tipo)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr></tbody></table></div></div>
-    <div v-if="modalEditarMovimiento" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Editar {{ movimientoEditando?.tipo === 'abono' ? 'Abono' : 'Cargo' }}</h3><form @submit.prevent="guardarEdicionMovimiento"><div class="mb-3"><label>Concepto</label><input type="text" v-model="movimientoEditando.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="movimientoEditando.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="movimientoEditando.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <!-- MODALES (todos los necesarios) -->
+    <div v-if="modalFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoFrente ? 'Editar Frente' : 'Nuevo Frente' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarFrente"><div class="mb-3"><input type="text" v-model="frenteForm.nombre" placeholder="Nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="frenteForm.tipo" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Tarjeta de Crédito</option><option>Préstamo Personal</option><option>Familiar/Amigo</option><option>Servicio</option><option>Otro</option></select></div><div class="mb-3"><input type="number" v-model="frenteForm.saldoTotal" placeholder="Saldo total" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="frenteForm.saldoPagado" placeholder="Saldo pagado" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="frenteForm.aporteMensual" placeholder="Aportación mensual" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><select v-model="frenteForm.prioridad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
     <div v-if="modalAbono" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Abono</h3><form @submit.prevent="registrarAbono"><div class="mb-3"><label>Frente</label><select v-model="abonoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><label>Monto</label><input type="number" v-model="abonoForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Concepto</label><input type="text" v-model="abonoForm.concepto" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="abonoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
     <div v-if="modalCargo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Cargo</h3><form @submit.prevent="registrarCargo"><div class="mb-3"><label>Frente</label><select v-model="cargoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><label>Monto</label><input type="number" v-model="cargoForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Concepto</label><input type="text" v-model="cargoForm.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="cargoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
-    <div v-if="modalFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoFrente ? 'Editar Frente' : 'Nuevo Frente' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarFrente"><div class="mb-3"><label>Nombre</label><input type="text" v-model="frenteForm.nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Tipo</label><select v-model="frenteForm.tipo" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Tarjeta de Crédito</option><option>Préstamo Personal</option><option>Familiar/Amigo</option><option>Servicio</option><option>Otro</option></select></div><div class="mb-3"><label>Saldo total</label><input type="number" v-model="frenteForm.saldoTotal" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Saldo pagado</label><input type="number" v-model="frenteForm.saldoPagado" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Aportación mensual</label><input type="number" v-model="frenteForm.aporteMensual" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Prioridad</label><select v-model="frenteForm.prioridad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
-    <div v-if="modalMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoMeta ? 'Editar Meta' : 'Nueva Meta' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarMeta"><div class="mb-3"><label>Nombre</label><input type="text" v-model="metaForm.nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Descripción</label><input type="text" v-model="metaForm.descripcion" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Monto objetivo</label><input type="number" v-model="metaForm.montoMeta" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Ahorrado actual</label><input type="number" v-model="metaForm.ahorrado" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha límite</label><input type="date" v-model="metaForm.fechaLimite" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
+    <div v-if="modalMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoMeta ? 'Editar Meta' : 'Nueva Meta' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarMeta"><div class="mb-3"><input type="text" v-model="metaForm.nombre" placeholder="Nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="metaForm.descripcion" placeholder="Descripción" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="metaForm.montoMeta" placeholder="Monto objetivo" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="metaForm.ahorrado" placeholder="Ahorrado actual" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><input type="date" v-model="metaForm.fechaLimite" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
     <div v-if="modalAbonoMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Abonar a meta: {{ metaActual?.nombre }}</h3><form @submit.prevent="registrarAbonoMeta"><div class="mb-3"><label>Monto</label><input type="number" v-model="abonoMetaMonto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="abonoMetaFecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Abonar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
-    <div v-if="modalGastoBase" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoGastoBase ? 'Editar Gasto' : 'Nuevo Gasto Base' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarGastoBase"><div class="mb-3"><label>Concepto</label><input type="text" v-model="gastoBaseForm.nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Categoría</label><select v-model="gastoBaseForm.categoria" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Vivienda</option><option>Transporte</option><option>Alimentación</option><option>Salud</option><option>Educación</option><option>Entretenimiento</option><option>Servicios financieros</option><option>Mascotas</option><option>Ahorro</option><option>Imprevistos</option><option>Otros</option></select></div><div class="mb-3"><label>Monto</label><input type="number" v-model="gastoBaseForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Periodicidad</label><select v-model="gastoBaseForm.periodicidad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual">Mensual</option><option value="bimestral">Bimestral</option><option value="trimestral">Trimestral</option><option value="anual">Anual</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
+    <div v-if="modalGastoBase" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoGastoBase ? 'Editar Gasto' : 'Nuevo Gasto Base' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarGastoBase"><div class="mb-3"><input type="text" v-model="gastoBaseForm.nombre" placeholder="Concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="gastoBaseForm.categoria" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Vivienda</option><option>Transporte</option><option>Alimentación</option><option>Salud</option><option>Educación</option><option>Entretenimiento</option><option>Servicios financieros</option><option>Mascotas</option><option>Ahorro</option><option>Imprevistos</option><option>Otros</option></select></div><div class="mb-3"><input type="number" v-model="gastoBaseForm.monto" placeholder="Monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="gastoBaseForm.periodicidad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual">Mensual</option><option value="bimestral">Bimestral</option><option value="trimestral">Trimestral</option><option value="anual">Anual</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
     <div v-if="modalIngresoManual" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Ingresos de {{ nombreMesActual }}</h3><form @submit.prevent="guardarIngresoManual"><div class="mb-4"><label>Ingresos totales del mes</label><input type="number" v-model="ingresoManualMonto" step="0.01" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
     <div v-if="modalImportar" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-2xl w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Importar CSV</h3><button @click="cerrarModales">✕</button></div><textarea v-model="csvTexto" rows="8" class="w-full border rounded-lg p-2 text-sm font-mono mb-3" placeholder="nombre,tipo,saldo_total,saldo_pagado,aporte_mensual,prioridad"></textarea><div class="flex gap-3"><button @click="procesarImportacion" class="bg-amber-600 text-white px-4 py-2 rounded-xl">Importar</button><button @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></div></div>
+
     <div v-if="modalReporteEfectivo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Reporte completo de efectivo</h3><button @click="cerrarModales">✕</button></div><table class="w-full text-sm border"><thead><tr><th class="p-2">Fecha</th><th>Concepto</th><th class="text-right">Ingreso</th><th class="text-right">Gasto</th><th class="text-right">Saldo</th></tr></thead><tbody><tr v-for="(mov, idx) in movimientosConSaldo" :key="mov.id"><td class="p-2">{{ mov.fecha }}</td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right text-emerald-600">{{ mov.tipo==='ingreso'?'$'+formatNumber(mov.monto):'' }}</td><td class="p-2 text-right text-red-600">{{ mov.tipo==='gasto'?'$'+formatNumber(mov.monto):'' }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td></tr></tbody></table></div></div>
+
+    <div v-if="modalHistorial" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Historial: {{ frenteActual?.nombre }}</h3><button @click="cerrarModales">✕</button></div><table class="w-full text-sm border"><thead><tr><th class="p-2">Fecha</th><th>Tipo</th><th>Concepto</th><th class="text-right">Monto</th><th class="text-right">Saldo después</th><th></th></tr></thead><tbody><tr v-for="mov in historialMovimientos" :key="mov.id"><td class="p-2">{{ mov.fecha }}</td><td class="p-2"><span :class="mov.tipo==='abono'?'text-emerald-600':'text-red-600'">{{ mov.tipo==='abono'?'Abono':'Cargo' }}</span></td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right">${{ formatNumber(mov.monto) }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td><td class="p-2 text-center"><button @click="editarMovimiento(mov)" class="text-blue-500 mr-2"><i data-lucide="edit-2" size="14"></i></button><button @click="eliminarMovimientoFrente(mov.id,mov.tipo)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr></tbody></table></div></div>
+
+    <div v-if="modalEditarMovimiento" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Editar {{ movimientoEditando?.tipo === 'abono' ? 'Abono' : 'Cargo' }}</h3><form @submit.prevent="guardarEdicionMovimiento"><div class="mb-3"><label>Concepto</label><input type="text" v-model="movimientoEditando.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="movimientoEditando.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="movimientoEditando.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
     <div v-if="alertaVisible" class="fixed bottom-4 right-4 bg-white border-l-4 border-emerald-500 shadow-lg rounded-lg p-3 max-w-sm z-50"><p class="text-sm">{{ alertaMensaje }}</p></div>
 </div>
 
 <script>
-    // ======================= AUTENTICACIÓN SIMPLE Y ROBUSTA =======================
+    // Autenticación simple + PIN
     (function() {
         const AUTH_KEY = 'mi_ruta_auth_password';
-        const loadingScreen = document.getElementById('loadingScreen');
+        const PIN_KEY = 'mi_ruta_pin';
+        const loading = document.getElementById('loadingScreen');
         const appDiv = document.getElementById('app');
-        
-        function mostrarApp() {
-            loadingScreen.style.display = 'none';
-            appDiv.style.display = 'block';
-        }
-        
         let password = localStorage.getItem(AUTH_KEY);
-        
         if (!password) {
-            let newPass = prompt('🔐 Primera vez. Crea una contraseña (mínimo 4 caracteres):');
-            while (!newPass || newPass.length < 4) {
-                newPass = prompt('Mínimo 4 caracteres. Crea tu contraseña:');
-            }
+            let newPass = prompt('🔐 Crea una contraseña (mínimo 4 caracteres):');
+            while (!newPass || newPass.length < 4) newPass = prompt('Mínimo 4 caracteres:');
             localStorage.setItem(AUTH_KEY, newPass);
             password = newPass;
             alert('Contraseña creada. Ahora inicia sesión.');
         }
-        
-        let intento = prompt('🔐 Ingresa tu contraseña para acceder a Mi Ruta Financiera:');
+        let intento = prompt('🔐 Contraseña:');
         while (intento !== password) {
-            let reset = confirm('Contraseña incorrecta. ¿Restablecer contraseña? (Esto borrará todos tus datos)');
-            if (reset) {
+            if (confirm('Contraseña incorrecta. ¿Restablecer? (borrará todos los datos)')) {
                 localStorage.clear();
                 location.reload();
                 return;
             }
             intento = prompt('Contraseña incorrecta. Intenta de nuevo:');
         }
-        mostrarApp();
+        const pinGuardado = localStorage.getItem(PIN_KEY);
+        if (pinGuardado) {
+            let pinIngresado = prompt('🔐 PIN de 6 dígitos (segundo factor):');
+            while (pinIngresado !== pinGuardado) {
+                if (confirm('PIN incorrecto. ¿Restablecer seguridad? (borrará PIN)')) {
+                    localStorage.removeItem(PIN_KEY);
+                    break;
+                }
+                pinIngresado = prompt('PIN incorrecto. Intenta de nuevo:');
+            }
+        }
+        loading.style.display = 'none';
+        appDiv.style.display = 'block';
     })();
 
-    // ======================= VUE APP =======================
     new Vue({
         el: '#app',
         data: {
@@ -251,21 +247,27 @@
             xpActual: 0,
             nivelActual: 1,
             notaHoy: '',
-            poderOcultoActivado: false,
+            poderOcultoActivado: localStorage.getItem('poderOcultoActivado') === 'true',
             secuenciaEasterEgg: [],
-            // Modales
-            modalHistorial: false, modalEditarMovimiento: false, modalAbono: false, modalCargo: false,
-            modalFrente: false, modalMeta: false, modalAbonoMeta: false, modalGastoBase: false,
-            modalIngresoManual: false, modalImportar: false, modalReporteEfectivo: false,
-            editandoFrente: false, editandoMeta: false, editandoGastoBase: false,
-            csvTexto: '',
             ingresoExtra: null,
             sugerencia: [],
-            frenteActual: null,
-            metaActual: null,
-            abonoMetaMonto: '',
-            abonoMetaFecha: new Date().toISOString().slice(0,10),
+            // Personalización
+            logoUrl: localStorage.getItem('logoUrl') || '',
+            logoUrlInput: '',
+            colorPrimario: localStorage.getItem('colorPrimario') || '#4f46e5',
+            // Seguridad
+            cifradoActivo: localStorage.getItem('cifradoActivo') === 'true',
+            pinActivado: localStorage.getItem('mi_ruta_pin') !== null,
+            // Modales y formularios
+            modalFrente: false, editandoFrente: false,
+            modalAbono: false, modalCargo: false, modalMeta: false, editandoMeta: false,
+            modalAbonoMeta: false, modalGastoBase: false, editandoGastoBase: false,
+            modalIngresoManual: false, modalImportar: false, modalReporteEfectivo: false,
+            modalHistorial: false, modalEditarMovimiento: false,
+            frenteActual: null, metaActual: null,
+            abonoMetaMonto: '', abonoMetaFecha: new Date().toISOString().slice(0,10),
             movimientoEditando: null,
+            csvTexto: '',
             ingresoManualMonto: null,
             abonoForm: { frenteId: '', monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
             cargoForm: { frenteId: '', monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
@@ -292,31 +294,14 @@
                 let pagado = this.frentes.reduce((s, f) => s + f.saldoPagado, 0);
                 return total === 0 ? 0 : Math.round((pagado / total) * 100);
             },
-            totalIngresosMes() {
-                let hoy = new Date(), mes = hoy.getMonth(), año = hoy.getFullYear();
-                return this.movimientos.filter(m => m.tipo === 'ingreso' && new Date(m.fecha).getMonth() === mes && new Date(m.fecha).getFullYear() === año).reduce((s,m) => s + m.monto, 0);
-            },
-            totalGastosMes() {
-                let hoy = new Date(), mes = hoy.getMonth(), año = hoy.getFullYear();
-                return this.movimientos.filter(m => m.tipo === 'gasto' && new Date(m.fecha).getMonth() === mes && new Date(m.fecha).getFullYear() === año).reduce((s,m) => s + m.monto, 0);
-            },
+            totalIngresosMes() { return this.movimientos.filter(m => m.tipo === 'ingreso' && new Date(m.fecha).getMonth() === new Date().getMonth()).reduce((s,m)=>s+m.monto,0); },
+            totalGastosMes() { return this.movimientos.filter(m => m.tipo === 'gasto' && new Date(m.fecha).getMonth() === new Date().getMonth()).reduce((s,m)=>s+m.monto,0); },
             flujoNetoMes() { return this.totalIngresosMes - this.totalGastosMes; },
             totalGastosBaseMensual() { return this.gastosBase.reduce((s, g) => s + (g.montoMensual || this.calcularMontoMensual(g)), 0); },
-            ingresosMesActual() {
-                const manual = this.obtenerIngresoManual();
-                return manual !== null ? manual : this.totalIngresosMes;
-            },
+            ingresosMesActual() { return this.totalIngresosMes; },
             superavit() { return this.ingresosMesActual - this.totalGastosBaseMensual; },
-            porcentajeCobertura() {
-                if (this.totalGastosBaseMensual === 0) return 100;
-                return Math.min(Math.round((this.ingresosMesActual / this.totalGastosBaseMensual) * 100), 999);
-            },
-            nombreMesActual() {
-                const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-                const fecha = new Date();
-                return `${meses[fecha.getMonth()]} ${fecha.getFullYear()}`;
-            },
-            xpSiguienteNivel() { return this.nivelActual * 500; },
+            porcentajeCobertura() { if (this.totalGastosBaseMensual === 0) return 100; return Math.min(Math.round((this.ingresosMesActual / this.totalGastosBaseMensual) * 100), 999); },
+            nombreMesActual() { const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']; return `${meses[new Date().getMonth()]} ${new Date().getFullYear()}`; },
             historialMovimientos() {
                 if (!this.frenteActual) return [];
                 let abonosF = this.abonos.filter(a => a.frenteId === this.frenteActual.id).map(a => ({ ...a, tipo: 'abono' }));
@@ -348,8 +333,9 @@
             lucide.createIcons();
             this.guardarHistorialPresupuesto();
             this.inicializarEasterEgg();
+            this.aplicarColorPrimario();
         },
-        updated() { lucide.createIcons(); this.actualizarGraficos(); },
+        updated() { lucide.createIcons(); this.actualizarGraficos(); this.aplicarColorPrimario(); },
         methods: {
             formatNumber(n) { return (n || 0).toLocaleString('es-MX', { minimumFractionDigits:2 }); },
             totalAbonadoFrente(id) { return this.abonos.filter(a => a.frenteId === id).reduce((s,a) => s + a.monto, 0); },
@@ -361,60 +347,56 @@
                 const kpi = document.getElementById('kpiTotalFrentes');
                 if (logo) logo.addEventListener('click', () => this.contarClick('logo'));
                 if (kpi) kpi.addEventListener('click', () => this.contarClick('kpi'));
-                document.body.addEventListener('click', (e) => {
-                    if (!e.target.closest('#logoEasterEgg') && !e.target.closest('#kpiTotalFrentes')) {
-                        this.contarClick('fondo');
-                    }
-                });
+                document.body.addEventListener('click', (e) => { if (!e.target.closest('#logoEasterEgg') && !e.target.closest('#kpiTotalFrentes')) this.contarClick('fondo'); });
             },
             contarClick(tipo) {
                 this.secuenciaEasterEgg.push(tipo);
                 if (this.secuenciaEasterEgg.length > 6) this.secuenciaEasterEgg.shift();
-                const esperada = ['logo','logo','logo','kpi','kpi','fondo'];
-                if (JSON.stringify(this.secuenciaEasterEgg) === JSON.stringify(esperada)) {
-                    this.activarPoderOculto();
+                if (JSON.stringify(this.secuenciaEasterEgg) === JSON.stringify(['logo','logo','logo','kpi','kpi','fondo'])) {
+                    this.poderOcultoActivado = true;
+                    localStorage.setItem('poderOcultoActivado', 'true');
+                    canvasConfetti({ particleCount: 300, spread: 100, origin: { y: 0.6 }, colors: ['gold', 'orange'] });
+                    this.mostrarAlerta('🎉 ¡Código Secreto Activado! Ataque especial desbloqueado (reduce 5% de un frente una vez por semana).');
                     this.secuenciaEasterEgg = [];
                 }
             },
-            activarPoderOculto() {
-                if (!this.poderOcultoActivado) {
-                    this.poderOcultoActivado = true;
-                    canvasConfetti({ particleCount: 300, spread: 100, origin: { y: 0.6 }, colors: ['gold', 'orange'] });
-                    this.mostrarAlerta('🎉 ¡Código Secreto Activado! Has desbloqueado el Poder Oculto en Bienestar 🎉');
-                } else {
-                    this.mostrarAlerta('El poder oculto ya está activo. ¡Úsalo en la pestaña Bienestar!');
+            ataqueUsadoEstaSemana(frenteId) {
+                const key = `ataque_${frenteId}_semana`;
+                const ultimoAtaque = localStorage.getItem(key);
+                if (!ultimoAtaque) return false;
+                const semanaPasada = new Date();
+                semanaPasada.setDate(semanaPasada.getDate() - 7);
+                return new Date(ultimoAtaque) > semanaPasada;
+            },
+            ataqueEspecial(frente) {
+                if (!this.poderOcultoActivado) return;
+                if (this.ataqueUsadoEstaSemana(frente.id)) {
+                    this.mostrarAlerta('Solo puedes usar el ataque especial una vez por semana para este frente.');
+                    return;
                 }
+                const reduccion = Math.round(frente.saldoRestante * 0.05);
+                if (reduccion === 0) { this.mostrarAlerta('El saldo es muy pequeño, no se puede aplicar ataque.'); return; }
+                // Aplicar reducción como si fuera un abono
+                frente.saldoPagado += reduccion;
+                frente.saldoRestante = frente.saldoTotal - frente.saldoPagado;
+                frente.porcentajePagado = Math.round((frente.saldoPagado / frente.saldoTotal) * 100);
+                this.abonos.push({ id: Date.now(), frenteId: frente.id, monto: reduccion, concepto: '⚡ Ataque especial (5%)', fecha: new Date().toISOString().slice(0,10) });
+                const key = `ataque_${frente.id}_semana`;
+                localStorage.setItem(key, new Date().toISOString());
+                this.guardarDatos();
+                canvasConfetti({ particleCount: 100, spread: 50, origin: { y: 0.6 }, colors: ['#ff416c', '#ff4b2b'] });
+                this.mostrarAlerta(`¡Ataque especial! Redujiste $${this.formatNumber(reduccion)} de "${frente.nombre}".`);
+                if (frente.saldoRestante === 0) this.verificarLogro(`¡Liquidaste el frente "${frente.nombre}" con un ataque especial!`);
             },
             otorgar1000XP() {
                 const hoy = new Date().toDateString();
-                const ultimoUso = localStorage.getItem('ultimoPoderOculto');
-                if (ultimoUso === hoy) {
-                    this.mostrarAlerta('Solo puedes usar el Poder Oculto una vez al día.');
-                    return;
-                }
-                this.agregarXP(1000);
+                if (localStorage.getItem('ultimoPoderOculto') === hoy) { this.mostrarAlerta('Solo una vez al día.'); return; }
+                this.xpActual += 1000;
+                while (this.xpActual >= this.nivelActual * 500) { this.xpActual -= this.nivelActual * 500; this.nivelActual++; canvasConfetti({ particleCount: 200 }); this.mostrarAlerta(`🎉 ¡Subiste a nivel ${this.nivelActual}!`); }
                 localStorage.setItem('ultimoPoderOculto', hoy);
-                canvasConfetti({ particleCount: 200, spread: 70, origin: { y: 0.6 }, colors: ['gold', 'white'] });
-                this.mostrarAlerta('¡Has recibido 1000 XP del Poder Oculto!');
-            },
-            
-            // SISTEMA DE XP
-            agregarXP(cantidad) {
-                this.xpActual += cantidad;
-                while (this.xpActual >= this.xpSiguienteNivel) {
-                    this.xpActual -= this.xpSiguienteNivel;
-                    this.nivelActual++;
-                    canvasConfetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
-                    this.mostrarAlerta(`🎉 ¡SUBISTE DE NIVEL! Ahora eres nivel ${this.nivelActual}. ¡Sigue así! 🎉`);
-                }
                 this.guardarDatos();
-            },
-            verificarLogro(mensaje) {
-                this.logros.push({ id: Date.now(), mensaje, fecha: new Date().toLocaleString() });
-                this.agregarXP(100);
-                canvasConfetti({ particleCount: 150, spread: 60, origin: { y: 0.6 } });
-                this.mostrarAlerta(`🏆 ¡Logro desbloqueado! ${mensaje} (+100 XP)`);
-                this.guardarDatos();
+                canvasConfetti({ particleCount: 200, spread: 70, origin: { y: 0.6 }, colors: ['gold'] });
+                this.mostrarAlerta('¡+1000 XP!');
             },
             
             // CRUD FRENTES
@@ -430,6 +412,7 @@
                 }
                 this.guardarDatos();
                 this.modalFrente = false;
+                this.mostrarAlerta('Frente guardado');
             },
             eliminarFrente(id) {
                 if (confirm('¿Eliminar este frente? También se eliminarán abonos y cargos asociados.')) {
@@ -437,10 +420,13 @@
                     this.abonos = this.abonos.filter(a => a.frenteId !== id);
                     this.cargos = this.cargos.filter(c => c.frenteId !== id);
                     this.guardarDatos();
+                    this.mostrarAlerta('Frente eliminado');
                 }
             },
             editarFrente(f) { this.editandoFrente = true; this.frenteForm = { ...f }; this.modalFrente = true; },
             abrirModalFrente() { this.editandoFrente = false; this.frenteForm = { id: null, nombre: '', tipo: 'Tarjeta de Crédito', saldoTotal: '', saldoPagado: '', aporteMensual: '', prioridad: 'media' }; this.modalFrente = true; },
+            
+            // ABONOS Y CARGOS
             abrirModalAbono(f) { this.abonoForm = { frenteId: f.id, monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) }; this.modalAbono = true; },
             abrirModalCargo(f) { this.cargoForm = { frenteId: f.id, monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) }; this.modalCargo = true; },
             registrarAbono() {
@@ -450,9 +436,8 @@
                     f.saldoPagado += monto; f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = Math.round((f.saldoPagado/f.saldoTotal)*100);
                     this.abonos.push({ id: Date.now(), frenteId: f.id, monto, concepto: this.abonoForm.concepto || 'Abono', fecha: this.abonoForm.fecha });
                     this.guardarDatos();
-                    this.mostrarAlerta(`Abono de $${this.formatNumber(monto)} registrado`);
+                    this.mostrarAlerta(`Abono de $${this.formatNumber(monto)} registrado en ${f.nombre}`);
                     this.modalAbono = false;
-                    // Verificar si se liquidó el frente
                     if (f.saldoRestante === 0) this.verificarLogro(`¡Liquidaste el frente "${f.nombre}"!`);
                 } else alert('Monto inválido o excede saldo');
             },
@@ -463,10 +448,12 @@
                     f.saldoTotal += monto; f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = Math.round((f.saldoPagado/f.saldoTotal)*100);
                     this.cargos.push({ id: Date.now(), frenteId: f.id, monto, concepto: this.cargoForm.concepto, fecha: this.cargoForm.fecha });
                     this.guardarDatos();
-                    this.mostrarAlerta(`Cargo de $${this.formatNumber(monto)} registrado`);
+                    this.mostrarAlerta(`Cargo de $${this.formatNumber(monto)} registrado en ${f.nombre}`);
                     this.modalCargo = false;
                 } else alert('Monto inválido');
             },
+            
+            // HISTORIAL Y REPORTES
             verHistorialFrente(f) { this.frenteActual = f; this.modalHistorial = true; },
             exportarCSVFrente(f) {
                 let movs = this.historialMovimientos;
@@ -484,7 +471,7 @@
                 this.frenteActual = f;
                 await this.$nextTick();
                 let movs = this.historialMovimientos;
-                let html = `<div class="pdf-reporte"><h1>Estado de cuenta: ${f.nombre}</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto</th><th>Saldo después</th></tr></thead><tbody>`;
+                let html = `<div class="pdf-reporte"><h1>Estado de cuenta: ${f.nombre}</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table border="1"><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto</th><th>Saldo después</th></tr></thead><tbody>`;
                 movs.forEach(m => { html += `<tr><td>${m.fecha}</td><td>${m.tipo==='abono'?'Abono':'Cargo'}</td><td>${m.concepto}</td><td>$${this.formatNumber(m.monto)}</td><td>$${this.formatNumber(m.saldo)}</td></tr>`; });
                 html += `</tbody></table><p><strong>Saldo restante:</strong> $${this.formatNumber(f.saldoRestante)}</p></div>`;
                 let cont = document.createElement('div'); cont.innerHTML = html; document.body.appendChild(cont);
@@ -498,7 +485,7 @@
                 document.body.removeChild(cont);
             },
             async exportarPDFGeneral() {
-                let html = `<div class="pdf-reporte"><h1>Reporte General de Frentes</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Saldo total</th><th>Pagado</th><th>Restante</th><th>Aportación mensual</th><th>Progreso</th></tr></thead><tbody>`;
+                let html = `<div class="pdf-reporte"><h1>Reporte General de Frentes</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table border="1"><thead><tr><th>Nombre</th><th>Tipo</th><th>Saldo total</th><th>Pagado</th><th>Restante</th><th>Aportación mensual</th><th>Progreso</th></tr></thead><tbody>`;
                 this.frentes.forEach(f => { html += `<tr><td>${f.nombre}</td><td>${f.tipo}</td><td>$${this.formatNumber(f.saldoTotal)}</td><td>$${this.formatNumber(f.saldoPagado)}</td><td>$${this.formatNumber(f.saldoRestante)}</td><td>$${this.formatNumber(f.aporteMensual)}</td><td>${f.porcentajePagado}%</td></tr>`; });
                 html += `</tbody></table><p><strong>Total compromisos:</strong> $${this.formatNumber(this.totalFrentes)}</p><p><strong>Aportación mensual total:</strong> $${this.formatNumber(this.aporteMensualTotal)}</p><p><strong>Tiempo estimado:</strong> ${this.tiempoEstimadoTotal}</p></div>`;
                 let cont = document.createElement('div'); cont.innerHTML = html; document.body.appendChild(cont);
@@ -511,59 +498,25 @@
                 pdf.save('reporte_general.pdf');
                 document.body.removeChild(cont);
             },
-            editarMovimiento(mov) { this.movimientoEditando = { ...mov }; this.modalEditarMovimiento = true; },
-            guardarEdicionMovimiento() {
-                let mov = this.movimientoEditando;
-                let frente = this.frentes.find(f => f.id === mov.frenteId);
-                if (!frente) return;
-                let diferencia = 0;
-                if (mov.tipo === 'abono') {
-                    let original = this.abonos.find(a => a.id === mov.id);
-                    if (original) {
-                        diferencia = mov.monto - original.monto;
-                        original.monto = mov.monto;
-                        original.concepto = mov.concepto;
-                        original.fecha = mov.fecha;
-                        frente.saldoPagado += diferencia;
-                    }
-                } else {
-                    let original = this.cargos.find(c => c.id === mov.id);
-                    if (original) {
-                        diferencia = mov.monto - original.monto;
-                        original.monto = mov.monto;
-                        original.concepto = mov.concepto;
-                        original.fecha = mov.fecha;
-                        frente.saldoTotal += diferencia;
-                    }
-                }
-                frente.saldoRestante = frente.saldoTotal - frente.saldoPagado;
-                frente.porcentajePagado = Math.round((frente.saldoPagado / frente.saldoTotal) * 100);
-                this.guardarDatos();
-                this.modalEditarMovimiento = false;
-                this.mostrarAlerta('Movimiento actualizado');
-                this.verHistorialFrente(frente);
+            exportarTodoCSV() {
+                let data = this.frentes.map(f => ({ nombre: f.nombre, tipo: f.tipo, saldo_total: f.saldoTotal, saldo_pagado: f.saldoPagado, aporte_mensual: f.aporteMensual, prioridad: f.prioridad, prioridad_maxima: f.prioridadMaxima || false }));
+                let csv = Papa.unparse(data);
+                let blob = new Blob([csv], { type: 'text/csv' });
+                let link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'todos_frentes.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
             },
-            eliminarMovimientoFrente(id, tipo) {
-                if (confirm('¿Eliminar este movimiento?')) {
-                    let movimiento = tipo === 'abono' ? this.abonos.find(a => a.id === id) : this.cargos.find(c => c.id === id);
-                    if (movimiento) {
-                        let frente = this.frentes.find(f => f.id === movimiento.frenteId);
-                        if (frente) {
-                            if (tipo === 'abono') {
-                                frente.saldoPagado -= movimiento.monto;
-                                this.abonos = this.abonos.filter(a => a.id !== id);
-                            } else {
-                                frente.saldoTotal -= movimiento.monto;
-                                this.cargos = this.cargos.filter(c => c.id !== id);
-                            }
-                            frente.saldoRestante = frente.saldoTotal - frente.saldoPagado;
-                            frente.porcentajePagado = Math.round((frente.saldoPagado / frente.saldoTotal) * 100);
-                            this.guardarDatos();
-                            this.mostrarAlerta('Movimiento eliminado');
-                            this.verHistorialFrente(frente);
-                        }
-                    }
-                }
+            exportarEfectivoCSV() {
+                let data = this.movimientos.map(m => ({ fecha: m.fecha, tipo: m.tipo, concepto: m.concepto, monto: m.monto }));
+                let csv = Papa.unparse(data);
+                let blob = new Blob([csv], { type: 'text/csv' });
+                let link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'movimientos_efectivo.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
             },
             
             // METAS
@@ -641,16 +594,6 @@
                     this.guardarDatos();
                 }
             },
-            exportarEfectivoCSV() {
-                let data = this.movimientos.map(m => ({ fecha: m.fecha, tipo: m.tipo, concepto: m.concepto, monto: m.monto }));
-                let csv = Papa.unparse(data);
-                let blob = new Blob([csv], { type: 'text/csv' });
-                let link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'movimientos_efectivo.csv';
-                link.click();
-                URL.revokeObjectURL(link.href);
-            },
             abrirModalReporteEfectivo() { this.modalReporteEfectivo = true; },
             
             // ASISTENTE
@@ -716,7 +659,7 @@
                 }});
             },
             
-            // PRESUPUESTO Y HISTORIAL
+            // PRESUPUESTO E HISTORIAL
             guardarHistorialPresupuesto() {
                 let historial = [...this.historialPresupuesto];
                 const mesKey = this.obtenerClaveMesActual();
@@ -777,7 +720,7 @@
             obtenerUltimos30Dias() { let dias = []; for (let i=29; i>=0; i--) { let fecha = new Date(); fecha.setDate(fecha.getDate() - i); dias.push(fecha.toISOString().slice(0,10)); } return dias; },
             calcularSaldosDiarios(dias) { let saldo = 0; let movsPorDia = {}; this.movimientos.forEach(m => { if (!movsPorDia[m.fecha]) movsPorDia[m.fecha] = 0; movsPorDia[m.fecha] += (m.tipo === 'ingreso' ? m.monto : -m.monto); }); return dias.map(d => { if (movsPorDia[d]) saldo += movsPorDia[d]; return saldo; }); },
             
-            // BIENESTAR (humor)
+            // BIENESTAR (humor, XP, logros)
             registrarHumor(humor) {
                 const hoy = new Date().toISOString().slice(0,10);
                 const idx = this.humorRegistros.findIndex(h => h.fecha === hoy);
@@ -790,12 +733,111 @@
             guardarRegistroHumor() {
                 const hoy = new Date().toISOString().slice(0,10);
                 const existe = this.humorRegistros.find(h => h.fecha === hoy);
-                if (existe) {
-                    existe.nota = this.notaHoy;
-                    this.guardarDatos();
-                    this.mostrarAlerta('Nota guardada');
+                if (existe) { existe.nota = this.notaHoy; this.guardarDatos(); this.mostrarAlerta('Nota guardada'); }
+                else this.mostrarAlerta('Primero selecciona un emoticono para hoy');
+            },
+            verificarLogro(mensaje) {
+                this.logros.push({ id: Date.now(), mensaje, fecha: new Date().toLocaleString() });
+                this.agregarXP(100);
+                canvasConfetti({ particleCount: 150, spread: 60, origin: { y: 0.6 } });
+                this.mostrarAlerta(`🏆 ¡Logro desbloqueado! ${mensaje} (+100 XP)`);
+                this.guardarDatos();
+            },
+            agregarXP(cantidad) {
+                this.xpActual += cantidad;
+                while (this.xpActual >= this.nivelActual * 500) {
+                    this.xpActual -= this.nivelActual * 500;
+                    this.nivelActual++;
+                    canvasConfetti({ particleCount: 200, spread: 70, origin: { y: 0.6 } });
+                    this.mostrarAlerta(`🎉 ¡SUBISTE DE NIVEL! Ahora eres nivel ${this.nivelActual}. ¡Sigue así! 🎉`);
+                }
+                this.guardarDatos();
+            },
+            
+            // PERSONALIZACIÓN Y SEGURIDAD
+            cambiarLogo() {
+                let url = prompt('Pega la URL de tu logo (imagen cuadrada):');
+                if (url) { this.logoUrl = url; localStorage.setItem('logoUrl', url); this.mostrarAlerta('Logo actualizado'); }
+            },
+            actualizarLogo() { if (this.logoUrlInput) { this.logoUrl = this.logoUrlInput; localStorage.setItem('logoUrl', this.logoUrlInput); this.mostrarAlerta('Logo actualizado'); } },
+            cambiarColorPrimario() { localStorage.setItem('colorPrimario', this.colorPrimario); this.aplicarColorPrimario(); },
+            aplicarColorPrimario() {
+                document.documentElement.style.setProperty('--color-primario', this.colorPrimario);
+                const btns = document.querySelectorAll('.bg-indigo-600, .bg-indigo-600\\/70');
+                btns.forEach(btn => { btn.style.backgroundColor = this.colorPrimario; });
+            },
+            toggleCifrado() { this.cifradoActivo = !this.cifradoActivo; localStorage.setItem('cifradoActivo', this.cifradoActivo); this.mostrarAlerta(this.cifradoActivo ? 'Cifrado activado' : 'Cifrado desactivado'); },
+            configurarPIN() {
+                let pin = prompt('Ingresa un PIN de 6 dígitos (segundo factor) o déjalo vacío para desactivar:');
+                if (pin && pin.length === 6 && /^\d+$/.test(pin)) { localStorage.setItem('mi_ruta_pin', pin); this.pinActivado = true; this.mostrarAlerta('PIN configurado.'); }
+                else if (pin === '') { localStorage.removeItem('mi_ruta_pin'); this.pinActivado = false; this.mostrarAlerta('PIN desactivado'); }
+                else this.mostrarAlerta('PIN inválido (deben ser 6 dígitos)');
+            },
+            exportarCopiaSeguridad() {
+                const datos = { frentes: this.frentes, abonos: this.abonos, cargos: this.cargos, movimientos: this.movimientos, metas: this.metas, gastosBase: this.gastosBase, historialPresupuesto: this.historialPresupuesto, humorRegistros: this.humorRegistros, logros: this.logros, xpActual: this.xpActual, nivelActual: this.nivelActual, poderOcultoActivado: this.poderOcultoActivado };
+                const json = JSON.stringify(datos);
+                let contenido = json;
+                if (this.cifradoActivo) {
+                    const clave = prompt('Crea una contraseña para cifrar la copia:');
+                    if (clave) contenido = CryptoJS.AES.encrypt(json, clave).toString();
+                    else return;
+                }
+                const blob = new Blob([contenido], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `copia_seguridad_${new Date().toISOString().slice(0,10)}.json`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+            },
+            
+            // EDICIÓN DE MOVIMIENTOS
+            editarMovimiento(mov) { this.movimientoEditando = { ...mov }; this.modalEditarMovimiento = true; },
+            guardarEdicionMovimiento() {
+                let mov = this.movimientoEditando;
+                let frente = this.frentes.find(f => f.id === mov.frenteId);
+                if (!frente) return;
+                let diferencia = 0;
+                if (mov.tipo === 'abono') {
+                    let original = this.abonos.find(a => a.id === mov.id);
+                    if (original) {
+                        diferencia = mov.monto - original.monto;
+                        original.monto = mov.monto;
+                        original.concepto = mov.concepto;
+                        original.fecha = mov.fecha;
+                        frente.saldoPagado += diferencia;
+                    }
                 } else {
-                    this.mostrarAlerta('Primero selecciona un emoticono para hoy');
+                    let original = this.cargos.find(c => c.id === mov.id);
+                    if (original) {
+                        diferencia = mov.monto - original.monto;
+                        original.monto = mov.monto;
+                        original.concepto = mov.concepto;
+                        original.fecha = mov.fecha;
+                        frente.saldoTotal += diferencia;
+                    }
+                }
+                frente.saldoRestante = frente.saldoTotal - frente.saldoPagado;
+                frente.porcentajePagado = Math.round((frente.saldoPagado / frente.saldoTotal) * 100);
+                this.guardarDatos();
+                this.modalEditarMovimiento = false;
+                this.mostrarAlerta('Movimiento actualizado');
+                this.verHistorialFrente(frente);
+            },
+            eliminarMovimientoFrente(id, tipo) {
+                if (confirm('¿Eliminar este movimiento?')) {
+                    let movimiento = tipo === 'abono' ? this.abonos.find(a => a.id === id) : this.cargos.find(c => c.id === id);
+                    if (movimiento) {
+                        let frente = this.frentes.find(f => f.id === movimiento.frenteId);
+                        if (frente) {
+                            if (tipo === 'abono') { frente.saldoPagado -= movimiento.monto; this.abonos = this.abonos.filter(a => a.id !== id); }
+                            else { frente.saldoTotal -= movimiento.monto; this.cargos = this.cargos.filter(c => c.id !== id); }
+                            frente.saldoRestante = frente.saldoTotal - frente.saldoPagado;
+                            frente.porcentajePagado = Math.round((frente.saldoPagado / frente.saldoTotal) * 100);
+                            this.guardarDatos();
+                            this.mostrarAlerta('Movimiento eliminado');
+                            this.verHistorialFrente(frente);
+                        }
+                    }
                 }
             },
             
@@ -815,14 +857,13 @@
                 this.saldoEfectivo = parseFloat(localStorage.getItem('saldoEfectivo') || '0');
                 this.poderOcultoActivado = localStorage.getItem('poderOcultoActivado') === 'true';
                 if (!this.gastosBase.length) {
-                    const predef = [
+                    this.gastosBase = [
                         { id: 1, nombre: "Renta", categoria: "Vivienda", monto: 8000, periodicidad: "mensual", montoMensual: 8000 },
                         { id: 2, nombre: "Luz", categoria: "Vivienda", monto: 600, periodicidad: "bimestral", montoMensual: 300 },
                         { id: 3, nombre: "Agua", categoria: "Vivienda", monto: 400, periodicidad: "bimestral", montoMensual: 200 },
                         { id: 4, nombre: "Gasolina", categoria: "Transporte", monto: 800, periodicidad: "semanal", montoMensual: 3464 },
                         { id: 5, nombre: "Supermercado", categoria: "Alimentación", monto: 1500, periodicidad: "semanal", montoMensual: 6495 }
                     ];
-                    this.gastosBase = predef;
                 }
                 this.frentes.forEach(f => { f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = f.saldoTotal===0?0:Math.round((f.saldoPagado/f.saldoTotal)*100); });
                 this.metas.forEach(m => { m.porcentaje = m.montoMeta === 0 ? 0 : Math.round((m.ahorrado / m.montoMeta) * 100); });
@@ -844,23 +885,21 @@
                 this.mostrarAlerta('Datos guardados');
                 this.guardarHistorialPresupuesto();
             },
+            cambiarContrasena() {
+                let nueva = prompt('Nueva contraseña (mínimo 4 caracteres):');
+                if (nueva && nueva.length >= 4) { localStorage.setItem('mi_ruta_auth_password', nueva); this.mostrarAlerta('Contraseña actualizada. La próxima vez usa la nueva.'); }
+                else if (nueva) this.mostrarAlerta('Mínimo 4 caracteres');
+            },
             reiniciarTodo() {
                 if (confirm('⚠️ ¿Eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
                     localStorage.clear();
                     location.reload();
                 }
             },
-            cambiarContrasena() {
-                let nueva = prompt('Nueva contraseña (mínimo 4 caracteres):');
-                if (nueva && nueva.length >= 4) {
-                    localStorage.setItem('mi_ruta_auth_password', nueva);
-                    this.mostrarAlerta('Contraseña actualizada. La próxima vez usa la nueva.');
-                } else if (nueva) this.mostrarAlerta('Mínimo 4 caracteres');
-            },
             cerrarModales() {
-                this.modalHistorial = false; this.modalEditarMovimiento = false; this.modalAbono = false; this.modalCargo = false;
-                this.modalFrente = false; this.modalMeta = false; this.modalAbonoMeta = false; this.modalGastoBase = false;
-                this.modalIngresoManual = false; this.modalImportar = false; this.modalReporteEfectivo = false;
+                this.modalFrente = false; this.modalAbono = false; this.modalCargo = false; this.modalMeta = false; this.modalAbonoMeta = false;
+                this.modalGastoBase = false; this.modalIngresoManual = false; this.modalImportar = false; this.modalReporteEfectivo = false;
+                this.modalHistorial = false; this.modalEditarMovimiento = false;
                 if (this.modalMovimiento) this.modalMovimiento = false;
             },
             mostrarAlerta(msg) { this.alertaMensaje = msg; this.alertaVisible = true; setTimeout(() => { this.alertaVisible = false; }, 3000); }
