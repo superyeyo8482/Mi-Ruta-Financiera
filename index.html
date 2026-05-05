@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Mi Ruta Financiera | Edición Legendaria</title>
+    <title>Mi Ruta Financiera | Dashboard Definitivo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -12,7 +12,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Inter', sans-serif; }
@@ -21,8 +20,9 @@
         .modal { transition: all 0.3s ease; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .ataque-btn { background: linear-gradient(135deg, #ff416c, #ff4b2b); animation: palpitar 1s infinite; }
-        @keyframes palpitar { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        body { overflow-y: auto; height: 100%; }
+        .main-container { max-width: 1280px; margin: 0 auto; }
+        canvas { max-height: 250px; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -33,6 +33,7 @@
 </div>
 
 <div id="app" style="display: none;" class="min-h-screen p-4 md:p-6">
+    <!-- Header -->
     <header class="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
             <div id="logoContainer" class="cursor-pointer" @click="cambiarLogo">
@@ -45,10 +46,9 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <button @click="cambiarColorPrimario" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="palette" size="14"></i> Tema</button>
-            <button @click="abrirModalSeguridad" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="shield" size="14"></i> Seguridad</button>
+            <button @click="abrirModalPersonalizacion" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="palette" size="14"></i> Tema</button>
             <button @click="cambiarContrasena" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="key" size="14"></i> Cambiar contraseña</button>
-            <button @click="exportarPDFGeneral" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="file-pdf" size="16"></i> PDF General</button>
+            <button @click="exportarPDFGeneral" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="printer" size="16"></i> PDF General</button>
             <button @click="abrirModalImportar" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="upload" size="16"></i> Importar CSV</button>
             <button @click="exportarTodoCSV" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="download" size="16"></i> Exportar Todo CSV</button>
             <button @click="abrirModalFrente" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-sm"><i data-lucide="plus-circle" size="16"></i> Nuevo Frente</button>
@@ -56,7 +56,7 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto">
+    <main class="max-w-7xl mx-auto main-container">
         <!-- KPIs -->
         <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
             <div id="kpiTotalFrentes" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 cursor-pointer"><div class="flex justify-between items-start mb-2"><span class="text-slate-500 text-xs font-medium">💰 Total Frentes</span><div class="bg-amber-100 p-1.5 rounded-lg text-amber-600"><i data-lucide="target" size="14"></i></div></div><h2 class="text-xl font-bold text-amber-700">${{ formatNumber(totalFrentes) }}</h2><p class="text-[10px] text-slate-400 mt-1">{{ frentes.length }} activos</p></div>
@@ -75,29 +75,32 @@
             <button @click="pestañaActiva = 'presupuesto'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'presupuesto'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">Presupuesto</button>
             <button @click="pestañaActiva = 'bienestar'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'bienestar'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">🌟 Bienestar</button>
             <button @click="pestañaActiva = 'asistente'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'asistente'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">Asistente</button>
-            <button @click="pestañaActiva = 'seguridad'" :class="{'border-indigo-500 text-indigo-600': pestañaActiva === 'seguridad'}" class="pb-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap">🔒 Seguridad</button>
         </div></div>
 
         <!-- ======================= FRENTES ======================= -->
         <div v-show="pestañaActiva === 'frentes'">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div v-for="frente in frentes" :key="frente.id" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden card">
-                    <div class="p-4 border-b flex justify-between"><div><h3 class="font-bold">{{ frente.nombre }}</h3><p class="text-[10px] text-slate-400 uppercase">{{ frente.tipo }}</p></div><div class="flex gap-1"><span v-if="frente.prioridadMaxima" class="bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">⭐</span><span :class="{'bg-red-100 text-red-600': frente.prioridad==='alta','bg-orange-100 text-orange-600': frente.prioridad==='media','bg-green-100 text-green-600': frente.prioridad==='baja'}" class="text-[9px] font-bold px-2 py-0.5 rounded-full">{{ frente.prioridad==='alta'?'Alta':frente.prioridad==='media'?'Media':'Baja' }}</span></div></div>
+                    <div class="p-4 border-b flex justify-between items-start">
+                        <div><h3 class="font-bold">{{ frente.nombre }}</h3><p class="text-[10px] text-slate-400 uppercase">{{ frente.tipo || 'General' }}</p></div>
+                        <div class="flex gap-1"><span v-if="frente.prioridadMaxima" class="bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">⭐</span><span :class="{'bg-red-100 text-red-600': frente.prioridad==='alta','bg-orange-100 text-orange-600': frente.prioridad==='media','bg-green-100 text-green-600': frente.prioridad==='baja'}" class="text-[9px] font-bold px-2 py-0.5 rounded-full">{{ frente.prioridad==='alta'?'Alta':frente.prioridad==='media'?'Media':'Baja' }}</span></div>
+                    </div>
                     <div class="p-4 space-y-2">
                         <div class="flex justify-between text-sm"><span class="text-slate-500">Restante</span><span class="font-bold">${{ formatNumber(frente.saldoRestante) }}</span></div>
                         <div class="flex justify-between text-sm"><span class="text-slate-500">Aportación/mes</span><span class="font-medium">${{ formatNumber(frente.aporteMensual) }}</span></div>
                         <div class="flex justify-between text-sm"><span class="text-slate-500">Total abonado</span><span class="text-emerald-600">${{ formatNumber(totalAbonadoFrente(frente.id)) }}</span></div>
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">Último pago</span><span class="text-slate-600">{{ frente.ultimoPago || 'Sin pagos' }}</span></div>
+                        <div class="flex justify-between text-sm"><span class="text-slate-500">Comentario</span><span class="text-slate-600 italic">{{ frente.comentario || '—' }}</span></div>
                         <div class="mt-2"><div class="flex justify-between text-[10px] mb-1"><span>Progreso</span><span>{{ frente.porcentajePagado }}%</span></div><div class="w-full bg-slate-200 h-2 rounded-full"><div class="bg-emerald-500 h-full rounded-full" :style="{ width: frente.porcentajePagado + '%' }"></div></div></div>
                         <div class="pt-2 flex flex-wrap gap-2">
                             <button @click="abrirModalAbono(frente)" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-1.5 rounded-lg"><i data-lucide="credit-card" size="12"></i> Abonar</button>
                             <button @click="abrirModalCargo(frente)" class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs py-1.5 rounded-lg"><i data-lucide="plus-circle" size="12"></i> Cargo</button>
-                            <button @click="exportarPDFFrente(frente)" class="text-purple-500 p-1.5" title="PDF"><i data-lucide="file-pdf" size="16"></i></button>
-                            <button @click="exportarCSVFrente(frente)" class="text-indigo-500 p-1.5" title="CSV"><i data-lucide="download" size="16"></i></button>
-                            <button @click="verHistorialFrente(frente)" class="text-slate-500 p-1.5" title="Historial"><i data-lucide="file-text" size="16"></i></button>
+                            <button @click="exportarPDFFrente(frente)" class="text-purple-500 p-1.5"><i data-lucide="printer" size="16"></i></button>
+                            <button @click="exportarCSVFrente(frente)" class="text-indigo-500 p-1.5"><i data-lucide="download" size="16"></i></button>
+                            <button @click="verHistorialFrente(frente)" class="text-slate-500 p-1.5"><i data-lucide="file-text" size="16"></i></button>
                             <button @click="editarFrente(frente)" class="text-slate-400 p-1.5"><i data-lucide="edit-2" size="14"></i></button>
                             <button @click="eliminarFrente(frente.id)" class="text-red-400 p-1.5"><i data-lucide="trash-2" size="14"></i></button>
-                            <!-- Botón Ataque Especial (solo si easter egg activado y no usado esta semana) -->
-                            <button v-if="poderOcultoActivado && !ataqueUsadoEstaSemana(frente.id)" @click="ataqueEspecial(frente)" class="ataque-btn text-white text-xs py-1 px-2 rounded-lg flex items-center gap-1">⚡ Ataque (-5%)</button>
+                            <button @click="abrirModalImportarHistorial(frente)" class="text-indigo-500 p-1.5" title="Importar historial"><i data-lucide="upload" size="16"></i></button>
                         </div>
                     </div>
                 </div>
@@ -108,11 +111,11 @@
         <!-- ======================= EFECTIVO ======================= -->
         <div v-show="pestañaActiva === 'efectivo'">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold mb-2"><i data-lucide="wallet" size="18"></i> Saldo Disponible</h3><div class="text-4xl font-bold text-emerald-600 mb-4">${{ formatNumber(saldoEfectivo) }}</div><div class="flex flex-wrap gap-2"><button @click="abrirModalIngreso" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="plus-circle" size="14"></i> Ingreso</button><button @click="abrirModalGasto" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="minus-circle" size="14"></i> Gasto</button><button @click="exportarEfectivoCSV" class="bg-slate-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="download" size="14"></i> Exportar CSV</button></div></div>
+                <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold mb-2"><i data-lucide="wallet" size="18"></i> Saldo Disponible</h3><div class="text-4xl font-bold text-emerald-600 mb-4">${{ formatNumber(saldoEfectivo) }}</div><div class="flex flex-wrap gap-2"><button @click="abrirModalIngreso" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="plus-circle" size="14"></i> Ingreso</button><button @click="abrirModalGasto" class="bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="minus-circle" size="14"></i> Gasto</button><button @click="exportarEfectivoCSV" class="bg-slate-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="download" size="14"></i> Exportar CSV</button><button @click="exportarEfectivoPDF" class="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm"><i data-lucide="printer" size="14"></i> Exportar PDF</button></div></div>
                 <div class="bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold mb-2">📊 Resumen del mes</h3><div class="space-y-2 text-sm"><div class="flex justify-between"><span>Ingresos:</span><span class="text-emerald-600 font-bold">${{ formatNumber(totalIngresosMes) }}</span></div><div class="flex justify-between"><span>Gastos:</span><span class="text-red-600 font-bold">${{ formatNumber(totalGastosMes) }}</span></div><div class="flex justify-between border-t pt-2"><span>Flujo neto:</span><span :class="flujoNetoMes >=0 ? 'text-emerald-600' : 'text-red-600'" class="font-bold">${{ formatNumber(flujoNetoMes) }}</span></div></div></div>
             </div>
             <div class="bg-white p-4 rounded-xl shadow-sm mb-6"><h3 class="font-bold mb-3">📈 Evolución del saldo (últimos 30 días)</h3><canvas id="evolucionChart" height="200"></canvas></div>
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden"><div class="p-4 border-b flex justify-between"><h3 class="font-bold">Historial de movimientos</h3><button @click="abrirModalReporteEfectivo" class="text-indigo-600 text-sm">Ver reporte completo</button></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>Fecha</th><th>Concepto</th><th class="text-right">Ingreso</th><th class="text-right">Gasto</th><th></th></tr></thead><tbody>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden"><div class="p-4 border-b flex justify-between"><h3 class="font-bold">Historial de movimientos</h3><button @click="abrirModalReporteEfectivo" class="text-indigo-600 text-sm">Ver reporte completo</button></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>Fecha</th><th>Concepto</th><th class="text-right">Ingreso</th><th class="text-right">Gasto</th><th></th></td></thead><tbody>
                 <tr v-for="mov in movimientos.slice().reverse().slice(0,10)" :key="mov.id"><td class="p-2 text-xs">{{ mov.fecha }}</td><td class="p-2 text-xs">{{ mov.concepto }}</td><td class="p-2 text-right text-emerald-600" v-if="mov.tipo === 'ingreso'">${{ formatNumber(mov.monto) }}</td><td class="p-2 text-right" v-else></td><td class="p-2 text-right text-red-600" v-if="mov.tipo === 'gasto'">${{ formatNumber(mov.monto) }}</td><td class="p-2 text-right" v-else></td><td class="p-2 text-center"><button @click="eliminarMovimiento(mov.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr>
                 <tr v-if="movimientos.length===0"><td colspan="5" class="text-center py-6">Sin movimientos</td></tr>
             </tbody></table></div></div>
@@ -127,76 +130,77 @@
             </div>
         </div>
 
-        <!-- ======================= PRESUPUESTO BASE ======================= -->
+        <!-- ======================= PRESUPUESTO ======================= -->
         <div v-show="pestañaActiva === 'presupuesto'">
             <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div><p class="text-sm text-slate-500">Total Gastos Base (Mensual)</p><p class="text-2xl font-bold">${{ formatNumber(totalGastosBaseMensual) }}</p></div><div><p class="text-sm text-slate-500">Ingresos del mes ({{ nombreMesActual }})</p><p class="text-2xl font-bold text-emerald-600">${{ formatNumber(ingresosMesActual) }}</p><button @click="abrirModalIngresoManual" class="text-xs text-indigo-500">Ajustar manual</button></div><div><p class="text-sm text-slate-500">Superávit / Déficit</p><p class="text-2xl font-bold" :class="superavit>=0?'text-emerald-600':'text-red-600'">${{ formatNumber(superavit) }}</p><p class="text-xs">{{ porcentajeCobertura }}% cubierto</p></div></div><div v-if="superavit<0" class="mt-3 p-2 bg-red-50 text-red-700 rounded-lg">⚠️ Tus ingresos no cubren tus gastos base.</div><div v-else-if="superavit>=0 && superavit<totalGastosBaseMensual*0.1" class="mt-3 p-2 bg-yellow-50 text-yellow-700 rounded-lg">⚠️ Estás muy ajustado.</div><div v-else class="mt-3 p-2 bg-emerald-50 text-emerald-700 rounded-lg">✅ ¡Vas bien! Tienes margen.</div></div>
             <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Lista de Gastos Base</h3><button @click="abrirModalGastoBase" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm"><i data-lucide="plus"></i> Agregar gasto</button></div>
-            <div class="overflow-x-auto bg-white rounded-xl shadow-sm border"><table class="w-full text-sm"><thead><tr><th>Concepto</th><th>Categoría</th><th class="text-right">Monto</th><th>Periodicidad</th><th class="text-right">Mensual</th><th></th></tr></thead><tbody>
-                <tr v-for="gasto in gastosBase" :key="gasto.id"><td class="p-3">{{ gasto.nombre }}</td><td class="p-3">{{ gasto.categoria }}</td><td class="p-3 text-right">${{ formatNumber(gasto.monto) }}</td><td class="p-3">{{ gasto.periodicidad }}</td><td class="p-3 text-right font-medium">${{ formatNumber(gasto.montoMensual) }}</td><td class="p-3 text-center"><button @click="editarGastoBase(gasto)" class="text-blue-500 mr-2"><i data-lucide="edit-2" size="14"></i></button><button @click="eliminarGastoBase(gasto.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr>
-                <tr v-if="gastosBase.length===0"><td colspan="6" class="p-6 text-center">No hay gastos definidos.</td></tr>
-            </tbody></table></div>
-            <div class="mt-8 bg-white rounded-xl shadow-sm p-4"><h3 class="font-bold text-lg mb-3">📉 Evolución últimos 6 meses</h3><canvas id="historialPresupuestoChart" height="200"></canvas><div class="overflow-x-auto mt-4"><table class="w-full text-xs"><thead><tr><th>Mes</th><th class="text-right">Ingresos</th><th class="text-right">Gastos Base</th><th class="text-right">Superávit</th><th>Cobertura</th></tr></thead><tbody><tr v-for="item in historialPresupuesto" :key="item.mesKey"><td class="p-2">{{ item.nombre }}</td><td class="p-2 text-right">${{ formatNumber(item.ingresos) }}</td><td class="p-2 text-right">${{ formatNumber(item.gastos) }}</td><td class="p-2 text-right" :class="item.superavit>=0?'text-emerald-600':'text-red-600'">${{ formatNumber(item.superavit) }}</td><td class="p-2">{{ item.porcentajeCobertura }}%</td></tr></tbody></table></div></div>
+            <div class="overflow-x-auto bg-white rounded-xl shadow-sm border"><table class="w-full text-sm"><thead><tr><th class="p-3 text-left">Concepto</th><th class="p-3 text-left">Categoría</th><th class="p-3 text-right">Monto</th><th class="p-3 text-left">Periodicidad</th><th class="p-3 text-right">Mensual</th><th></th></tr></thead><tbody><tr v-for="gasto in gastosBase" :key="gasto.id"><td class="p-3">{{ gasto.nombre }}</td><td class="p-3">{{ gasto.categoria }}</td><td class="p-3 text-right">${{ formatNumber(gasto.monto) }}</td><td class="p-3">{{ gasto.periodicidad }}</td><td class="p-3 text-right font-medium">${{ formatNumber(gasto.montoMensual) }}</td><td class="p-3 text-center"><button @click="editarGastoBase(gasto)" class="text-blue-500 mr-2"><i data-lucide="edit-2" size="14"></i></button><button @click="eliminarGastoBase(gasto.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr><tr v-if="gastosBase.length===0"><td colspan="6" class="p-6 text-center">No hay gastos definidos.</td></tr></tbody></table></div>
+            <div class="mt-8 bg-white rounded-xl shadow-sm p-4"><h3 class="font-bold text-lg mb-3">📉 Evolución últimos 6 meses</h3><canvas id="historialPresupuestoChart" height="200"></canvas><div class="overflow-x-auto mt-4"><table class="w-full text-xs"><thead><tr><th class="p-2">Mes</th><th class="p-2 text-right">Ingresos</th><th class="p-2 text-right">Gastos Base</th><th class="p-2 text-right">Superávit</th><th class="p-2">Cobertura</th></tr></thead><tbody><tr v-for="item in historialPresupuesto" :key="item.mesKey"><td class="p-2">{{ item.nombre }}</td><td class="p-2 text-right">${{ formatNumber(item.ingresos) }}</td><td class="p-2 text-right">${{ formatNumber(item.gastos) }}</td><td class="p-2 text-right" :class="item.superavit>=0?'text-emerald-600':'text-red-600'">${{ formatNumber(item.superavit) }}</td><td class="p-2">{{ item.porcentajeCobertura }}%</td></tr></tbody></table></div></div>
         </div>
 
         <!-- ======================= BIENESTAR ======================= -->
         <div v-show="pestañaActiva === 'bienestar'">
-            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="text-xl font-bold mb-3"><i data-lucide="smile" class="text-yellow-500"></i> ¿Cómo te sientes hoy?</h3><div class="flex gap-4 justify-center my-4"><button @click="registrarHumor('feliz')" class="text-4xl p-2 hover:scale-110">😊</button><button @click="registrarHumor('neutral')" class="text-4xl p-2 hover:scale-110">😐</button><button @click="registrarHumor('estresado')" class="text-4xl p-2 hover:scale-110">😞</button></div><textarea v-model="notaHoy" placeholder="Nota (opcional)..." rows="2" class="w-full border rounded-lg p-2 text-sm"></textarea><button @click="guardarRegistroHumor" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Guardar registro de hoy</button></div>
-            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="font-bold text-lg mb-3">📈 Evolución de tu estado de ánimo</h3><canvas id="humorChart" height="150"></canvas></div>
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="text-xl font-bold mb-3"><i data-lucide="smile" class="text-yellow-500"></i> ¿Cómo te sientes hoy financieramente?</h3><div class="flex gap-3 justify-center my-4 flex-wrap"><button @click="registrarHumor('feliz')" class="text-4xl p-2 hover:scale-110 transition">😊</button><button @click="registrarHumor('tranquilo')" class="text-4xl p-2 hover:scale-110 transition">😌</button><button @click="registrarHumor('neutral')" class="text-4xl p-2 hover:scale-110 transition">😐</button><button @click="registrarHumor('preocupado')" class="text-4xl p-2 hover:scale-110 transition">😕</button><button @click="registrarHumor('estresado')" class="text-4xl p-2 hover:scale-110 transition">😞</button><button @click="registrarHumor('enojado')" class="text-4xl p-2 hover:scale-110 transition">😠</button></div><textarea v-model="notaHoy" placeholder="Nota (opcional)..." rows="2" class="w-full border rounded-lg p-2 text-sm"></textarea><button @click="guardarRegistroHumor" class="mt-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Guardar registro de hoy</button></div>
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="font-bold text-lg mb-3">📈 Evolución de tu estado de ánimo</h3><canvas id="humorChart" height="200"></canvas></div>
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="font-bold text-lg mb-3"><i data-lucide="list" class="text-indigo-500"></i> Historial de estados de ánimo</h3><div class="overflow-x-auto max-h-60"><table class="w-full text-sm"><thead class="bg-slate-50"></td><th class="p-2">Fecha</th><th class="p-2">Humor</th><th class="p-2">Nota</th><th></th></tr></thead><tbody><tr v-for="reg in humorRegistros.slice().reverse()" :key="reg.fecha"><td class="p-2">{{ reg.fecha }}</td><td class="p-2">{{ reg.humor }}</td><td class="p-2">{{ reg.nota }}</td><td class="p-2"><button @click="eliminarRegistroHumor(reg.fecha)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr><tr v-if="humorRegistros.length===0"><td colspan="4" class="text-center py-4 text-slate-400">No hay registros de humor.</td></tr></tbody></table></div></div>
+            <div class="bg-white rounded-xl shadow-sm p-5 mb-6"><h3 class="font-bold text-lg mb-3"><i data-lucide="heart" class="text-red-500"></i> Mi estado general (salud, medicación, etc.)</h3><div class="flex flex-wrap gap-3 items-center mb-3"><input type="date" v-model="notaPersonalFecha" class="border rounded-lg px-2 py-1 text-sm"><input type="text" v-model="notaPersonalEtiqueta" placeholder="Etiqueta (ej. Medicación, Ánimo)" class="border rounded-lg px-2 py-1 text-sm flex-1"><textarea v-model="notaPersonalTexto" placeholder="Nota..." rows="2" class="w-full border rounded-lg p-2 text-sm"></textarea><button @click="guardarNotaPersonal" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm">Guardar</button></div><div class="mt-4"><h4 class="font-semibold">Historial anual</h4><div class="overflow-x-auto max-h-60"><table class="w-full text-sm"><thead class="bg-slate-50"><tr><th class="p-2">Fecha</th><th class="p-2">Etiqueta</th><th class="p-2">Nota</th><th></th></tr></thead><tbody><tr v-for="nota in notasPersonales.slice().reverse()" :key="nota.id"><td class="p-2">{{ nota.fecha }}</td><td class="p-2">{{ nota.etiqueta }}</td><td class="p-2">{{ nota.texto }}</td><td class="p-2"><button @click="eliminarNotaPersonal(nota.id)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr><tr v-if="notasPersonales.length===0"><td colspan="4" class="text-center py-4 text-slate-400">No hay notas registradas.</td></tr></tbody></table></div></div></div>
             <div class="bg-white rounded-xl shadow-sm p-5"><h3 class="font-bold text-lg mb-3"><i data-lucide="trophy" class="text-amber-500"></i> Rincón de Celebración</h3><div v-if="logros.length === 0" class="text-center py-6 text-slate-400">Aún no hay logros.</div><div v-else class="space-y-2"><div v-for="logro in logros.slice().reverse()" :key="logro.id" class="p-3 bg-amber-50 rounded-lg border-l-4 border-amber-500"><p class="font-medium">{{ logro.mensaje }}</p><p class="text-xs text-slate-500">{{ logro.fecha }}</p></div></div></div>
             <div v-if="poderOcultoActivado" class="mt-6 text-center"><button @click="otorgar1000XP" class="poder-oculto-btn text-black font-bold px-6 py-3 rounded-full shadow-lg">⚡ ¡Poder Oculto! +1000 XP ⚡</button><p class="text-xs text-slate-400 mt-2">Una vez al día.</p></div>
         </div>
 
         <!-- ======================= ASISTENTE ======================= -->
         <div v-show="pestañaActiva === 'asistente'">
-            <div class="bg-white rounded-xl shadow-sm p-6 mb-6"><h3 class="text-xl font-bold mb-2"><i data-lucide="zap" class="text-amber-500"></i> Asistente de Distribución</h3><div class="flex flex-col sm:flex-row gap-4"><input type="number" v-model="ingresoExtra" placeholder="Monto extra" class="border rounded-lg px-3 py-2 flex-1"><button @click="generarSugerencia" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Generar sugerencia</button></div><div v-if="sugerencia.length" class="mt-6 bg-slate-50 p-4 rounded-lg"><h4 class="font-bold mb-2">Propuesta:</h4><div v-for="item in sugerencia" :key="item.frente.id" class="flex justify-between border-b py-2"><span><strong>{{ item.frente.nombre }}</strong> {{ item.frente.prioridadMaxima ? '⭐' : '' }}</span><span class="font-bold text-emerald-600">${{ formatNumber(item.monto) }}</span></div><div class="mt-4 flex justify-end gap-2"><button @click="aplicarSugerencia" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">Aplicar</button><button @click="sugerencia = []" class="border rounded-lg px-4 py-2">Cancelar</button></div></div></div>
-            <div class="bg-white rounded-xl shadow-sm p-6"><h3 class="text-xl font-bold mb-4"><i data-lucide="settings"></i> Prioridades</h3><div class="space-y-2"><div v-for="frente in frentes" :key="frente.id" class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>{{ frente.nombre }}</span><div class="flex gap-2"><button @click="alternarPrioridadMaxima(frente)" :class="frente.prioridadMaxima ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-bold">⭐ Máxima</button><select v-model="frente.prioridad" class="text-xs border rounded px-2 py-1"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div></div></div><div class="mt-4 text-right"><button @click="guardarDatos" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Guardar configuración</button></div></div>
-        </div>
-
-        <!-- ======================= SEGURIDAD ======================= -->
-        <div v-show="pestañaActiva === 'seguridad'">
-            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-                <h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="shield" class="text-green-600"></i> Seguridad de los datos</h3>
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between border-b pb-3"><div><p class="font-medium">Cifrado de datos locales</p><p class="text-xs text-slate-500">Los datos se guardan cifrados en tu navegador (AES).</p></div><button @click="toggleCifrado" class="px-3 py-1 rounded-lg text-sm" :class="cifradoActivo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">{{ cifradoActivo ? 'Activo' : 'Inactivo' }}</button></div>
-                    <div class="flex items-center justify-between border-b pb-3"><div><p class="font-medium">PIN de acceso de 6 dígitos (2FA)</p><p class="text-xs text-slate-500">Pide un PIN adicional después de la contraseña.</p></div><button @click="configurarPIN" class="px-3 py-1 rounded-lg text-sm" :class="pinActivado ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'">{{ pinActivado ? 'PIN activado' : 'Configurar PIN' }}</button></div>
-                    <div class="flex items-center justify-between"><div><p class="font-medium">Exportar copia de seguridad</p><p class="text-xs text-slate-500">Descarga un archivo cifrado con todos tus datos.</p></div><button @click="exportarCopiaSeguridad" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm">Exportar</button></div>
-                </div>
-            </div>
-            <div class="bg-white rounded-xl shadow-sm p-6"><h3 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="paintbrush" class="text-purple-600"></i> Personalización visual</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Logo personalizado (URL)</label><div class="flex gap-2"><input type="text" v-model="logoUrlInput" placeholder="https://.../logo.png" class="flex-1 border rounded-lg px-3 py-2 text-sm"><button @click="actualizarLogo" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm">Cargar</button></div><p class="text-xs text-slate-400 mt-1">Pega la URL de una imagen cuadrada.</p></div><div><label class="block text-sm font-medium mb-1">Color primario</label><input type="color" v-model="colorPrimario" @change="cambiarColorPrimario" class="w-full h-10 border rounded-lg"><p class="text-xs text-slate-400 mt-1">Cambia el color de los botones principales.</p></div></div></div>
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6"><h3 class="text-xl font-bold mb-2"><i data-lucide="calculator" class="text-amber-500"></i> Simulador de pagos (sin modificar tus frentes)</h3><p class="text-slate-500 mb-4">Ingresa un monto extra y te mostraremos una propuesta de distribución. Luego podrás generar una orden de pago.</p><div class="flex flex-col sm:flex-row gap-4"><input type="number" v-model="ingresoExtra" placeholder="Monto extra (ej. 5000)" class="border rounded-lg px-3 py-2 flex-1"><button @click="generarSugerencia" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Generar sugerencia</button></div><div v-if="sugerencia.length" class="mt-6 bg-slate-50 p-4 rounded-lg"><h4 class="font-bold mb-2">📋 Propuesta de distribución:</h4><div v-for="item in sugerencia" :key="item.frente.id" class="flex justify-between items-center border-b py-2"><span><strong>{{ item.frente.nombre }}</strong> {{ item.frente.prioridadMaxima ? '⭐ Prioridad máxima' : '' }}</span><span class="font-bold text-emerald-600">${{ formatNumber(item.monto) }}</span></div><div class="mt-4 flex justify-end gap-2"><button @click="abrirModalOrdenPago" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">Generar orden de pago</button><button @click="sugerencia = []" class="border rounded-lg px-4 py-2">Cancelar</button></div></div></div>
+            <div class="bg-white rounded-xl shadow-sm p-6"><h3 class="text-xl font-bold mb-4"><i data-lucide="settings"></i> Configuración de prioridades</h3><p class="text-slate-500 mb-4">Define qué frente debe tener prioridad máxima (solo uno). El asistente le dará el 50% del ingreso extra. También puedes ingresar datos bancarios para cada frente.</p><div class="space-y-2"><div v-for="frente in frentes" :key="frente.id" class="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50 rounded-lg"><div class="font-medium">{{ frente.nombre }}</div><div class="flex flex-wrap gap-2 mt-2 sm:mt-0"><button @click="alternarPrioridadMaxima(frente)" :class="frente.prioridadMaxima ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-600'" class="px-3 py-1 rounded-lg text-xs font-bold">⭐ Máxima</button><select v-model="frente.prioridad" class="text-xs border rounded px-2 py-1"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select><button @click="abrirModalDatosBancarios(frente)" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs">🏦 Datos bancarios</button></div></div></div><div class="mt-4 text-right"><button @click="guardarDatos" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Guardar configuración</button></div></div>
         </div>
     </main>
 
-    <!-- MODALES (todos los necesarios) -->
-    <div v-if="modalFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoFrente ? 'Editar Frente' : 'Nuevo Frente' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarFrente"><div class="mb-3"><input type="text" v-model="frenteForm.nombre" placeholder="Nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="frenteForm.tipo" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Tarjeta de Crédito</option><option>Préstamo Personal</option><option>Familiar/Amigo</option><option>Servicio</option><option>Otro</option></select></div><div class="mb-3"><input type="number" v-model="frenteForm.saldoTotal" placeholder="Saldo total" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="frenteForm.saldoPagado" placeholder="Saldo pagado" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="frenteForm.aporteMensual" placeholder="Aportación mensual" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><select v-model="frenteForm.prioridad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <!-- MODALES (todos necesarios) -->
+    <div v-if="modalPersonalizacion" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Personalización</h3><button @click="cerrarModales">✕</button></div><div class="space-y-4"><div><label class="block text-sm font-medium mb-1">Logo personalizado (URL)</label><div class="flex gap-2"><input type="text" v-model="logoUrlInput" placeholder="https://.../logo.png" class="flex-1 border rounded-lg px-3 py-2 text-sm"><button @click="actualizarLogo" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm">Cargar</button></div></div><div><label class="block text-sm font-medium mb-1">Color primario</label><input type="color" v-model="colorPrimario" @change="cambiarColorPrimario" class="w-full h-10 border rounded-lg"></div></div><div class="flex justify-end mt-4"><button @click="cerrarModales" class="px-4 py-2 border rounded-lg">Cerrar</button></div></div></div>
 
-    <div v-if="modalAbono" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Abono</h3><form @submit.prevent="registrarAbono"><div class="mb-3"><label>Frente</label><select v-model="abonoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><label>Monto</label><input type="number" v-model="abonoForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Concepto</label><input type="text" v-model="abonoForm.concepto" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="abonoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalFrente" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoFrente ? 'Editar Frente' : 'Nuevo Frente' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarFrente"><div class="mb-3"><input type="text" v-model="frenteForm.nombre" placeholder="Nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="frenteForm.tipo" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Tarjeta de Crédito</option><option>Préstamo Personal</option><option>Familiar/Amigo</option><option>Servicio</option><option>Otro</option></select></div><div class="mb-3"><input type="text" v-model="frenteForm.saldoTotalStr" placeholder="Saldo total (ej. 375670.60)" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="frenteForm.saldoPagadoStr" placeholder="Saldo pagado (ej. 0)" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="frenteForm.aporteMensualStr" placeholder="Aportación mensual" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="frenteForm.comentario" placeholder="Comentario (opcional)" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label class="text-sm">Fecha último pago (opcional)</label><input type="date" v-model="frenteForm.ultimoPago" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><select v-model="frenteForm.prioridad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalCargo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Cargo</h3><form @submit.prevent="registrarCargo"><div class="mb-3"><label>Frente</label><select v-model="cargoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><label>Monto</label><input type="number" v-model="cargoForm.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Concepto</label><input type="text" v-model="cargoForm.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="cargoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalAbono" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Abono</h3><form @submit.prevent="registrarAbono"><div class="mb-3"><label>Frente</label><select v-model="abonoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><input type="text" v-model="abonoForm.montoStr" placeholder="Monto (ej. 5000.00)" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="abonoForm.concepto" placeholder="Concepto" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label class="text-sm">Fecha del pago</label><input type="date" v-model="abonoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoMeta ? 'Editar Meta' : 'Nueva Meta' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarMeta"><div class="mb-3"><input type="text" v-model="metaForm.nombre" placeholder="Nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="metaForm.descripcion" placeholder="Descripción" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="metaForm.montoMeta" placeholder="Monto objetivo" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="number" v-model="metaForm.ahorrado" placeholder="Ahorrado actual" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><input type="date" v-model="metaForm.fechaLimite" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalCargo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Registrar Cargo</h3><form @submit.prevent="registrarCargo"><div class="mb-3"><label>Frente</label><select v-model="cargoForm.frenteId" required class="w-full border rounded-lg px-3 py-2 text-sm"><option v-for="f in frentes" :value="f.id">{{ f.nombre }} - Restante: ${{ formatNumber(f.saldoRestante) }}</option></select></div><div class="mb-3"><input type="text" v-model="cargoForm.montoStr" placeholder="Monto (ej. 5000.00)" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="cargoForm.concepto" placeholder="Concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><input type="date" v-model="cargoForm.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-xl">Registrar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalAbonoMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Abonar a meta: {{ metaActual?.nombre }}</h3><form @submit.prevent="registrarAbonoMeta"><div class="mb-3"><label>Monto</label><input type="number" v-model="abonoMetaMonto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="abonoMetaFecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Abonar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoMeta ? 'Editar Meta' : 'Nueva Meta' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarMeta"><div class="mb-3"><input type="text" v-model="metaForm.nombre" placeholder="Nombre" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="metaForm.descripcion" placeholder="Descripción" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="metaForm.montoMetaStr" placeholder="Monto objetivo" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="metaForm.ahorradoStr" placeholder="Ahorrado actual" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><input type="date" v-model="metaForm.fechaLimite" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalGastoBase" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoGastoBase ? 'Editar Gasto' : 'Nuevo Gasto Base' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarGastoBase"><div class="mb-3"><input type="text" v-model="gastoBaseForm.nombre" placeholder="Concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="gastoBaseForm.categoria" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Vivienda</option><option>Transporte</option><option>Alimentación</option><option>Salud</option><option>Educación</option><option>Entretenimiento</option><option>Servicios financieros</option><option>Mascotas</option><option>Ahorro</option><option>Imprevistos</option><option>Otros</option></select></div><div class="mb-3"><input type="number" v-model="gastoBaseForm.monto" placeholder="Monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="gastoBaseForm.periodicidad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual">Mensual</option><option value="bimestral">Bimestral</option><option value="trimestral">Trimestral</option><option value="anual">Anual</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalAbonoMeta" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Abonar a meta: {{ metaActual?.nombre }}</h3><form @submit.prevent="registrarAbonoMeta"><div class="mb-3"><input type="text" v-model="abonoMetaMontoStr" placeholder="Monto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><input type="date" v-model="abonoMetaFecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Abonar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalIngresoManual" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Ingresos de {{ nombreMesActual }}</h3><form @submit.prevent="guardarIngresoManual"><div class="mb-4"><label>Ingresos totales del mes</label><input type="number" v-model="ingresoManualMonto" step="0.01" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalGastoBase" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">{{ editandoGastoBase ? 'Editar Gasto' : 'Nuevo Gasto Base' }}</h3><button @click="cerrarModales">✕</button></div><form @submit.prevent="guardarGastoBase"><div class="mb-3"><input type="text" v-model="gastoBaseForm.nombre" placeholder="Concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="gastoBaseForm.categoria" class="w-full border rounded-lg px-3 py-2 text-sm"><option>Vivienda</option><option>Transporte</option><option>Alimentación</option><option>Salud</option><option>Educación</option><option>Entretenimiento</option><option>Servicios financieros</option><option>Mascotas</option><option>Ahorro</option><option>Imprevistos</option><option>Otros</option></select></div><div class="mb-3"><input type="text" v-model="gastoBaseForm.montoStr" placeholder="Monto (ej. 5000.00)" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><select v-model="gastoBaseForm.periodicidad" class="w-full border rounded-lg px-3 py-2 text-sm"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual">Mensual</option><option value="bimestral">Bimestral</option><option value="trimestral">Trimestral</option><option value="anual">Anual</option></select></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalImportar" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-2xl w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Importar CSV</h3><button @click="cerrarModales">✕</button></div><textarea v-model="csvTexto" rows="8" class="w-full border rounded-lg p-2 text-sm font-mono mb-3" placeholder="nombre,tipo,saldo_total,saldo_pagado,aporte_mensual,prioridad"></textarea><div class="flex gap-3"><button @click="procesarImportacion" class="bg-amber-600 text-white px-4 py-2 rounded-xl">Importar</button><button @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></div></div>
+    <div v-if="modalIngresoManual" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Ingresos de {{ nombreMesActual }}</h3><form @submit.prevent="guardarIngresoManual"><div class="mb-4"><input type="text" v-model="ingresoManualMontoStr" placeholder="Ingresos totales del mes" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
 
-    <div v-if="modalReporteEfectivo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Reporte completo de efectivo</h3><button @click="cerrarModales">✕</button></div><table class="w-full text-sm border"><thead><tr><th class="p-2">Fecha</th><th>Concepto</th><th class="text-right">Ingreso</th><th class="text-right">Gasto</th><th class="text-right">Saldo</th></tr></thead><tbody><tr v-for="(mov, idx) in movimientosConSaldo" :key="mov.id"><td class="p-2">{{ mov.fecha }}</td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right text-emerald-600">{{ mov.tipo==='ingreso'?'$'+formatNumber(mov.monto):'' }}</td><td class="p-2 text-right text-red-600">{{ mov.tipo==='gasto'?'$'+formatNumber(mov.monto):'' }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td></tr></tbody></table></div></div>
+    <div v-if="modalImportar" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-2xl w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Importar CSV (frentes)</h3><button @click="cerrarModales">✕</button></div><textarea v-model="csvTexto" rows="8" class="w-full border rounded-lg p-2 text-sm font-mono mb-3" placeholder="nombre,tipo,saldo_total,saldo_pagado,aporte_mensual,prioridad,comentario,ultimo_pago"></textarea><div class="flex gap-3"><button @click="procesarImportacion" class="bg-amber-600 text-white px-4 py-2 rounded-xl">Importar</button><button @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></div></div>
+
+    <div v-if="modalImportarHistorial" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-2xl w-full p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Importar historial de abonos para: {{ frenteHistorial?.nombre }}</h3><button @click="cerrarModales">✕</button></div><textarea v-model="csvHistorialTexto" rows="10" class="w-full border rounded-lg p-2 text-sm font-mono mb-3" placeholder="fecha,monto,concepto&#10;2025-01-15,5000,Pago quincena"></textarea><div class="flex gap-3"><button @click="procesarImportacionHistorial" class="bg-emerald-600 text-white px-4 py-2 rounded-xl">Importar historial</button><button @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></div></div>
+
+    <div v-if="modalDatosBancarios" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Datos bancarios: {{ frenteDatosBancarios?.nombre }}</h3><form @submit.prevent="guardarDatosBancarios"><div class="mb-3"><input type="text" v-model="datosBancarios.banco" placeholder="Banco" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="datosBancarios.cuenta" placeholder="Número de cuenta" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="datosBancarios.clabe" placeholder="CLABE" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="datosBancarios.referencia" placeholder="Referencia / concepto" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
+    <div v-if="modalOrdenPago" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Orden de pago sugerida</h3><button @click="cerrarModales">✕</button></div><div id="ordenPagoContenido"><h2 class="text-xl font-bold">Instrucciones de pago</h2><p>Fecha: {{ new Date().toLocaleDateString() }}</p><p>Monto extra a distribuir: ${{ formatNumber(ingresoExtra) }}</p><table class="w-full border mt-4"><thead><tr><th>Frente</th><th>Monto sugerido</th><th>Datos bancarios</th></tr></thead><tbody><tr v-for="item in sugerencia" :key="item.frente.id"><td>{{ item.frente.nombre }}</td><td class="text-right">${{ formatNumber(item.monto) }}</td><td><span v-if="item.frente.datosBancarios">Banco: {{ item.frente.datosBancarios.banco }}<br>Cuenta: {{ item.frente.datosBancarios.cuenta }}<br>CLABE: {{ item.frente.datosBancarios.clabe }}<br>Ref: {{ item.frente.datosBancarios.referencia || '—' }}</span><span v-else>No especificados</span></td></tr></tbody></table></div><div class="flex justify-end gap-2 mt-4"><button @click="imprimirOrdenPago" class="bg-purple-600 text-white px-4 py-2 rounded-lg">Imprimir / PDF</button><button @click="cerrarModales" class="border px-4 py-2 rounded-lg">Cerrar</button></div></div></div>
 
     <div v-if="modalHistorial" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Historial: {{ frenteActual?.nombre }}</h3><button @click="cerrarModales">✕</button></div><table class="w-full text-sm border"><thead><tr><th class="p-2">Fecha</th><th>Tipo</th><th>Concepto</th><th class="text-right">Monto</th><th class="text-right">Saldo después</th><th></th></tr></thead><tbody><tr v-for="mov in historialMovimientos" :key="mov.id"><td class="p-2">{{ mov.fecha }}</td><td class="p-2"><span :class="mov.tipo==='abono'?'text-emerald-600':'text-red-600'">{{ mov.tipo==='abono'?'Abono':'Cargo' }}</span></td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right">${{ formatNumber(mov.monto) }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td><td class="p-2 text-center"><button @click="editarMovimiento(mov)" class="text-blue-500 mr-2"><i data-lucide="edit-2" size="14"></i></button><button @click="eliminarMovimientoFrente(mov.id,mov.tipo)" class="text-red-400"><i data-lucide="trash-2" size="14"></i></button></td></tr></tbody></table></div></div>
 
-    <div v-if="modalEditarMovimiento" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Editar {{ movimientoEditando?.tipo === 'abono' ? 'Abono' : 'Cargo' }}</h3><form @submit.prevent="guardarEdicionMovimiento"><div class="mb-3"><label>Concepto</label><input type="text" v-model="movimientoEditando.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><label>Monto</label><input type="number" v-model="movimientoEditando.monto" required step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><label>Fecha</label><input type="date" v-model="movimientoEditando.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+    <div v-if="modalEditarMovimiento" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-md w-full p-5"><h3 class="text-lg font-bold mb-4">Editar {{ movimientoEditando?.tipo === 'abono' ? 'Abono' : 'Cargo' }}</h3><form @submit.prevent="guardarEdicionMovimiento"><div class="mb-3"><input type="text" v-model="movimientoEditando.concepto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-3"><input type="text" v-model="movimientoEditando.montoStr" placeholder="Monto" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="mb-4"><input type="date" v-model="movimientoEditando.fecha" required class="w-full border rounded-lg px-3 py-2 text-sm"></div><div class="flex gap-3"><button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl">Guardar</button><button type="button" @click="cerrarModales" class="px-4 py-2 border rounded-xl">Cancelar</button></div></form></div></div>
+
+    <div v-if="modalReporteEfectivo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @click.self="cerrarModales"><div class="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-auto p-5"><div class="flex justify-between mb-4"><h3 class="text-lg font-bold">Reporte completo de efectivo</h3><button @click="cerrarModales">✕</button></div><table class="w-full text-sm border"><thead><tr><th class="p-2">Fecha</th><th>Concepto</th><th class="text-right">Ingreso</th><th class="text-right">Gasto</th><th class="text-right">Saldo</th></tr></thead><tbody><tr v-for="(mov, idx) in movimientosConSaldo" :key="mov.id"><td class="p-2">{{ mov.fecha }}</td><td class="p-2">{{ mov.concepto }}</td><td class="p-2 text-right text-emerald-600">{{ mov.tipo==='ingreso'?'$'+formatNumber(mov.monto):'' }}</td><td class="p-2 text-right text-red-600">{{ mov.tipo==='gasto'?'$'+formatNumber(mov.monto):'' }}</td><td class="p-2 text-right">${{ formatNumber(mov.saldo) }}</td></tr></tbody></table></div></div>
 
     <div v-if="alertaVisible" class="fixed bottom-4 right-4 bg-white border-l-4 border-emerald-500 shadow-lg rounded-lg p-3 max-w-sm z-50"><p class="text-sm">{{ alertaMensaje }}</p></div>
 </div>
 
 <script>
-    // Autenticación simple + PIN
+    // Función para parsear números (permite punto o coma)
+    function parseNumber(str) {
+        if (!str) return 0;
+        let s = str.toString().trim().replace(/,/g, '.');
+        let num = parseFloat(s);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // Autenticación (se ejecuta antes de Vue)
     (function() {
         const AUTH_KEY = 'mi_ruta_auth_password';
-        const PIN_KEY = 'mi_ruta_pin';
         const loading = document.getElementById('loadingScreen');
         const appDiv = document.getElementById('app');
         let password = localStorage.getItem(AUTH_KEY);
@@ -216,21 +220,11 @@
             }
             intento = prompt('Contraseña incorrecta. Intenta de nuevo:');
         }
-        const pinGuardado = localStorage.getItem(PIN_KEY);
-        if (pinGuardado) {
-            let pinIngresado = prompt('🔐 PIN de 6 dígitos (segundo factor):');
-            while (pinIngresado !== pinGuardado) {
-                if (confirm('PIN incorrecto. ¿Restablecer seguridad? (borrará PIN)')) {
-                    localStorage.removeItem(PIN_KEY);
-                    break;
-                }
-                pinIngresado = prompt('PIN incorrecto. Intenta de nuevo:');
-            }
-        }
         loading.style.display = 'none';
         appDiv.style.display = 'block';
     })();
 
+    // Vue instance
     new Vue({
         el: '#app',
         data: {
@@ -243,37 +237,44 @@
             gastosBase: [],
             historialPresupuesto: [],
             humorRegistros: [],
+            notasPersonales: [],
             logros: [],
             xpActual: 0,
             nivelActual: 1,
             notaHoy: '',
-            poderOcultoActivado: localStorage.getItem('poderOcultoActivado') === 'true',
+            poderOcultoActivado: false,
             secuenciaEasterEgg: [],
             ingresoExtra: null,
             sugerencia: [],
-            // Personalización
             logoUrl: localStorage.getItem('logoUrl') || '',
             logoUrlInput: '',
             colorPrimario: localStorage.getItem('colorPrimario') || '#4f46e5',
-            // Seguridad
-            cifradoActivo: localStorage.getItem('cifradoActivo') === 'true',
-            pinActivado: localStorage.getItem('mi_ruta_pin') !== null,
-            // Modales y formularios
+            modalPersonalizacion: false,
             modalFrente: false, editandoFrente: false,
             modalAbono: false, modalCargo: false, modalMeta: false, editandoMeta: false,
             modalAbonoMeta: false, modalGastoBase: false, editandoGastoBase: false,
-            modalIngresoManual: false, modalImportar: false, modalReporteEfectivo: false,
-            modalHistorial: false, modalEditarMovimiento: false,
-            frenteActual: null, metaActual: null,
-            abonoMetaMonto: '', abonoMetaFecha: new Date().toISOString().slice(0,10),
+            modalIngresoManual: false, modalImportar: false, modalImportarHistorial: false,
+            modalReporteEfectivo: false, modalHistorial: false, modalEditarMovimiento: false,
+            modalDatosBancarios: false, modalOrdenPago: false,
+            frenteActual: null, frenteHistorial: null, frenteDatosBancarios: null,
+            metaActual: null,
+            abonoMetaMontoStr: '',
+            abonoMetaFecha: new Date().toISOString().slice(0,10),
             movimientoEditando: null,
             csvTexto: '',
-            ingresoManualMonto: null,
-            abonoForm: { frenteId: '', monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
-            cargoForm: { frenteId: '', monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
-            frenteForm: { id: null, nombre: '', tipo: 'Tarjeta de Crédito', saldoTotal: '', saldoPagado: '', aporteMensual: '', prioridad: 'media' },
-            metaForm: { id: null, nombre: '', descripcion: '', montoMeta: '', ahorrado: '', fechaLimite: '' },
-            gastoBaseForm: { id: null, nombre: '', categoria: 'Vivienda', monto: '', periodicidad: 'mensual', montoMensual: 0 },
+            csvHistorialTexto: '',
+            ingresoManualMontoStr: '',
+            abonoForm: { frenteId: '', montoStr: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
+            cargoForm: { frenteId: '', montoStr: '', concepto: '', fecha: new Date().toISOString().slice(0,10) },
+            frenteForm: { id: null, nombre: '', tipo: 'Tarjeta de Crédito', saldoTotalStr: '', saldoPagadoStr: '', aporteMensualStr: '', prioridad: 'media', comentario: '', ultimoPago: '' },
+            metaForm: { id: null, nombre: '', descripcion: '', montoMetaStr: '', ahorradoStr: '', fechaLimite: '' },
+            gastoBaseForm: { id: null, nombre: '', categoria: 'Vivienda', montoStr: '', periodicidad: 'mensual' },
+            datosBancarios: { banco: '', cuenta: '', clabe: '', referencia: '' },
+            notaPersonalFecha: new Date().toISOString().slice(0,10),
+            notaPersonalEtiqueta: '',
+            notaPersonalTexto: '',
+            modalMovimiento: false, tipoMov: 'ingreso', movimientoForm: { concepto: '', montoStr: '', fecha: new Date().toISOString().slice(0,10) },
+            saldoEfectivo: 0,
             alertaVisible: false, alertaMensaje: '',
             chartInstance: null, chartHistorial: null, chartHumor: null
         },
@@ -297,7 +298,12 @@
             totalIngresosMes() { return this.movimientos.filter(m => m.tipo === 'ingreso' && new Date(m.fecha).getMonth() === new Date().getMonth()).reduce((s,m)=>s+m.monto,0); },
             totalGastosMes() { return this.movimientos.filter(m => m.tipo === 'gasto' && new Date(m.fecha).getMonth() === new Date().getMonth()).reduce((s,m)=>s+m.monto,0); },
             flujoNetoMes() { return this.totalIngresosMes - this.totalGastosMes; },
-            totalGastosBaseMensual() { return this.gastosBase.reduce((s, g) => s + (g.montoMensual || this.calcularMontoMensual(g)), 0); },
+            totalGastosBaseMensual() {
+                return this.gastosBase.reduce((s, g) => {
+                    let montoMensual = g.monto * (g.periodicidad === 'semanal' ? 4.33 : g.periodicidad === 'quincenal' ? 2 : g.periodicidad === 'mensual' ? 1 : g.periodicidad === 'bimestral' ? 0.5 : g.periodicidad === 'trimestral' ? 0.333 : g.periodicidad === 'anual' ? 0.08333 : 1);
+                    return s + montoMensual;
+                }, 0);
+            },
             ingresosMesActual() { return this.totalIngresosMes; },
             superavit() { return this.ingresosMesActual - this.totalGastosBaseMensual; },
             porcentajeCobertura() { if (this.totalGastosBaseMensual === 0) return 100; return Math.min(Math.round((this.ingresosMesActual / this.totalGastosBaseMensual) * 100), 999); },
@@ -337,11 +343,11 @@
         },
         updated() { lucide.createIcons(); this.actualizarGraficos(); this.aplicarColorPrimario(); },
         methods: {
+            parseNumber,
             formatNumber(n) { return (n || 0).toLocaleString('es-MX', { minimumFractionDigits:2 }); },
             totalAbonadoFrente(id) { return this.abonos.filter(a => a.frenteId === id).reduce((s,a) => s + a.monto, 0); },
-            calcularMontoMensual(g) { const f = { semanal:4.33, quincenal:2, mensual:1, bimestral:0.5, trimestral:0.3333, anual:0.08333 }; return g.monto * (f[g.periodicidad] || 1); },
-            
-            // EASTER EGG
+
+            // Easter Egg (sin modificar saldos)
             inicializarEasterEgg() {
                 const logo = document.getElementById('logoEasterEgg');
                 const kpi = document.getElementById('kpiTotalFrentes');
@@ -356,59 +362,63 @@
                     this.poderOcultoActivado = true;
                     localStorage.setItem('poderOcultoActivado', 'true');
                     canvasConfetti({ particleCount: 300, spread: 100, origin: { y: 0.6 }, colors: ['gold', 'orange'] });
-                    this.mostrarAlerta('🎉 ¡Código Secreto Activado! Ataque especial desbloqueado (reduce 5% de un frente una vez por semana).');
+                    try { const audioCtx = new (window.AudioContext || window.webkitAudioContext)(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.frequency.value = 880; gain.gain.value = 0.3; osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 1); osc.stop(audioCtx.currentTime + 1); } catch(e) {}
+                    this.mostrarAlerta('🎉 ¡Código Secreto Activado! Has ganado 100 XP y desbloqueado el Poder Oculto.');
+                    this.agregarXP(100);  // 🔥 Ganas 100 XP sin alterar deudas
                     this.secuenciaEasterEgg = [];
                 }
-            },
-            ataqueUsadoEstaSemana(frenteId) {
-                const key = `ataque_${frenteId}_semana`;
-                const ultimoAtaque = localStorage.getItem(key);
-                if (!ultimoAtaque) return false;
-                const semanaPasada = new Date();
-                semanaPasada.setDate(semanaPasada.getDate() - 7);
-                return new Date(ultimoAtaque) > semanaPasada;
-            },
-            ataqueEspecial(frente) {
-                if (!this.poderOcultoActivado) return;
-                if (this.ataqueUsadoEstaSemana(frente.id)) {
-                    this.mostrarAlerta('Solo puedes usar el ataque especial una vez por semana para este frente.');
-                    return;
-                }
-                const reduccion = Math.round(frente.saldoRestante * 0.05);
-                if (reduccion === 0) { this.mostrarAlerta('El saldo es muy pequeño, no se puede aplicar ataque.'); return; }
-                // Aplicar reducción como si fuera un abono
-                frente.saldoPagado += reduccion;
-                frente.saldoRestante = frente.saldoTotal - frente.saldoPagado;
-                frente.porcentajePagado = Math.round((frente.saldoPagado / frente.saldoTotal) * 100);
-                this.abonos.push({ id: Date.now(), frenteId: frente.id, monto: reduccion, concepto: '⚡ Ataque especial (5%)', fecha: new Date().toISOString().slice(0,10) });
-                const key = `ataque_${frente.id}_semana`;
-                localStorage.setItem(key, new Date().toISOString());
-                this.guardarDatos();
-                canvasConfetti({ particleCount: 100, spread: 50, origin: { y: 0.6 }, colors: ['#ff416c', '#ff4b2b'] });
-                this.mostrarAlerta(`¡Ataque especial! Redujiste $${this.formatNumber(reduccion)} de "${frente.nombre}".`);
-                if (frente.saldoRestante === 0) this.verificarLogro(`¡Liquidaste el frente "${frente.nombre}" con un ataque especial!`);
             },
             otorgar1000XP() {
                 const hoy = new Date().toDateString();
                 if (localStorage.getItem('ultimoPoderOculto') === hoy) { this.mostrarAlerta('Solo una vez al día.'); return; }
-                this.xpActual += 1000;
-                while (this.xpActual >= this.nivelActual * 500) { this.xpActual -= this.nivelActual * 500; this.nivelActual++; canvasConfetti({ particleCount: 200 }); this.mostrarAlerta(`🎉 ¡Subiste a nivel ${this.nivelActual}!`); }
+                this.agregarXP(1000);
                 localStorage.setItem('ultimoPoderOculto', hoy);
-                this.guardarDatos();
                 canvasConfetti({ particleCount: 200, spread: 70, origin: { y: 0.6 }, colors: ['gold'] });
                 this.mostrarAlerta('¡+1000 XP!');
             },
-            
-            // CRUD FRENTES
+
+            // Personalización
+            abrirModalPersonalizacion() { this.modalPersonalizacion = true; },
+            actualizarLogo() { if (this.logoUrlInput) { this.logoUrl = this.logoUrlInput; localStorage.setItem('logoUrl', this.logoUrlInput); this.mostrarAlerta('Logo actualizado'); } },
+            cambiarLogo() { let url = prompt('URL del logo:'); if(url) { this.logoUrl = url; localStorage.setItem('logoUrl', url); this.mostrarAlerta('Logo actualizado'); } },
+            cambiarColorPrimario() { localStorage.setItem('colorPrimario', this.colorPrimario); this.aplicarColorPrimario(); },
+            aplicarColorPrimario() {
+                document.documentElement.style.setProperty('--color-primario', this.colorPrimario);
+                document.querySelectorAll('.bg-indigo-600, .bg-indigo-600\\/70').forEach(btn => btn.style.backgroundColor = this.colorPrimario);
+            },
+
+            // CRUD Frentes
             guardarFrente() {
-                let saldoTotal = parseFloat(this.frenteForm.saldoTotal);
-                let saldoPagado = parseFloat(this.frenteForm.saldoPagado || 0);
-                let aporte = parseFloat(this.frenteForm.aporteMensual);
+                let saldoTotal = parseNumber(this.frenteForm.saldoTotalStr);
+                let saldoPagado = parseNumber(this.frenteForm.saldoPagadoStr);
+                let aporte = parseNumber(this.frenteForm.aporteMensualStr);
                 if (this.editandoFrente) {
                     let idx = this.frentes.findIndex(f => f.id === this.frenteForm.id);
-                    if (idx !== -1) this.frentes[idx] = { ...this.frenteForm, saldoTotal, saldoPagado, aporteMensual: aporte, saldoRestante: saldoTotal - saldoPagado, porcentajePagado: saldoTotal===0?0:Math.round((saldoPagado/saldoTotal)*100) };
+                    if (idx !== -1) {
+                        let f = this.frentes[idx];
+                        f.nombre = this.frenteForm.nombre;
+                        f.tipo = this.frenteForm.tipo;
+                        f.saldoTotal = saldoTotal;
+                        f.saldoPagado = saldoPagado;
+                        f.aporteMensual = aporte;
+                        f.comentario = this.frenteForm.comentario;
+                        f.ultimoPago = this.frenteForm.ultimoPago;
+                        f.saldoRestante = f.saldoTotal - f.saldoPagado;
+                        f.porcentajePagado = f.saldoTotal === 0 ? 0 : Math.round((f.saldoPagado / f.saldoTotal) * 100);
+                    }
                 } else {
-                    this.frentes.push({ id: Date.now(), ...this.frenteForm, saldoTotal, saldoPagado, aporteMensual: aporte, saldoRestante: saldoTotal - saldoPagado, porcentajePagado: saldoTotal===0?0:Math.round((saldoPagado/saldoTotal)*100) });
+                    this.frentes.push({
+                        id: Date.now(),
+                        nombre: this.frenteForm.nombre,
+                        tipo: this.frenteForm.tipo,
+                        saldoTotal: saldoTotal,
+                        saldoPagado: saldoPagado,
+                        aporteMensual: aporte,
+                        comentario: this.frenteForm.comentario,
+                        ultimoPago: this.frenteForm.ultimoPago,
+                        saldoRestante: saldoTotal - saldoPagado,
+                        porcentajePagado: saldoTotal === 0 ? 0 : Math.round((saldoPagado / saldoTotal) * 100)
+                    });
                 }
                 this.guardarDatos();
                 this.modalFrente = false;
@@ -423,17 +433,32 @@
                     this.mostrarAlerta('Frente eliminado');
                 }
             },
-            editarFrente(f) { this.editandoFrente = true; this.frenteForm = { ...f }; this.modalFrente = true; },
-            abrirModalFrente() { this.editandoFrente = false; this.frenteForm = { id: null, nombre: '', tipo: 'Tarjeta de Crédito', saldoTotal: '', saldoPagado: '', aporteMensual: '', prioridad: 'media' }; this.modalFrente = true; },
-            
-            // ABONOS Y CARGOS
-            abrirModalAbono(f) { this.abonoForm = { frenteId: f.id, monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) }; this.modalAbono = true; },
-            abrirModalCargo(f) { this.cargoForm = { frenteId: f.id, monto: '', concepto: '', fecha: new Date().toISOString().slice(0,10) }; this.modalCargo = true; },
+            editarFrente(f) {
+                this.editandoFrente = true;
+                this.frenteForm = {
+                    id: f.id,
+                    nombre: f.nombre,
+                    tipo: f.tipo || 'Tarjeta de Crédito',
+                    saldoTotalStr: f.saldoTotal.toString(),
+                    saldoPagadoStr: f.saldoPagado.toString(),
+                    aporteMensualStr: f.aporteMensual.toString(),
+                    prioridad: f.prioridad || 'media',
+                    comentario: f.comentario || '',
+                    ultimoPago: f.ultimoPago || ''
+                };
+                this.modalFrente = true;
+            },
+            abrirModalFrente() { this.editandoFrente = false; this.frenteForm = { id: null, nombre: '', tipo: 'Tarjeta de Crédito', saldoTotalStr: '', saldoPagadoStr: '', aporteMensualStr: '', prioridad: 'media', comentario: '', ultimoPago: '' }; this.modalFrente = true; },
+            abrirModalAbono(f) { this.abonoForm = { frenteId: f.id, montoStr: '', concepto: '', fecha: new Date().toISOString().slice(0,10) }; this.modalAbono = true; },
+            abrirModalCargo(f) { this.cargoForm = { frenteId: f.id, montoStr: '', concepto: '', fecha: new Date().toISOString().slice(0,10) }; this.modalCargo = true; },
             registrarAbono() {
                 let f = this.frentes.find(f => f.id === this.abonoForm.frenteId);
-                let monto = parseFloat(this.abonoForm.monto);
+                let monto = parseNumber(this.abonoForm.montoStr);
                 if (f && monto>0 && monto<=f.saldoRestante) {
-                    f.saldoPagado += monto; f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = Math.round((f.saldoPagado/f.saldoTotal)*100);
+                    f.saldoPagado += monto;
+                    f.saldoRestante = f.saldoTotal - f.saldoPagado;
+                    f.porcentajePagado = Math.round((f.saldoPagado / f.saldoTotal) * 100);
+                    f.ultimoPago = this.abonoForm.fecha;
                     this.abonos.push({ id: Date.now(), frenteId: f.id, monto, concepto: this.abonoForm.concepto || 'Abono', fecha: this.abonoForm.fecha });
                     this.guardarDatos();
                     this.mostrarAlerta(`Abono de $${this.formatNumber(monto)} registrado en ${f.nombre}`);
@@ -443,17 +468,17 @@
             },
             registrarCargo() {
                 let f = this.frentes.find(f => f.id === this.cargoForm.frenteId);
-                let monto = parseFloat(this.cargoForm.monto);
+                let monto = parseNumber(this.cargoForm.montoStr);
                 if (f && monto>0) {
-                    f.saldoTotal += monto; f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = Math.round((f.saldoPagado/f.saldoTotal)*100);
+                    f.saldoTotal += monto;
+                    f.saldoRestante = f.saldoTotal - f.saldoPagado;
+                    f.porcentajePagado = Math.round((f.saldoPagado / f.saldoTotal) * 100);
                     this.cargos.push({ id: Date.now(), frenteId: f.id, monto, concepto: this.cargoForm.concepto, fecha: this.cargoForm.fecha });
                     this.guardarDatos();
                     this.mostrarAlerta(`Cargo de $${this.formatNumber(monto)} registrado en ${f.nombre}`);
                     this.modalCargo = false;
                 } else alert('Monto inválido');
             },
-            
-            // HISTORIAL Y REPORTES
             verHistorialFrente(f) { this.frenteActual = f; this.modalHistorial = true; },
             exportarCSVFrente(f) {
                 let movs = this.historialMovimientos;
@@ -471,7 +496,7 @@
                 this.frenteActual = f;
                 await this.$nextTick();
                 let movs = this.historialMovimientos;
-                let html = `<div class="pdf-reporte"><h1>Estado de cuenta: ${f.nombre}</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table border="1"><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto</th><th>Saldo después</th></tr></thead><tbody>`;
+                let html = `<div><h1>Estado de cuenta: ${f.nombre}</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table border="1"><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto</th><th>Saldo después</th></tr></thead><tbody>`;
                 movs.forEach(m => { html += `<tr><td>${m.fecha}</td><td>${m.tipo==='abono'?'Abono':'Cargo'}</td><td>${m.concepto}</td><td>$${this.formatNumber(m.monto)}</td><td>$${this.formatNumber(m.saldo)}</td></tr>`; });
                 html += `</tbody></table><p><strong>Saldo restante:</strong> $${this.formatNumber(f.saldoRestante)}</p></div>`;
                 let cont = document.createElement('div'); cont.innerHTML = html; document.body.appendChild(cont);
@@ -485,13 +510,12 @@
                 document.body.removeChild(cont);
             },
             async exportarPDFGeneral() {
-                let html = `<div class="pdf-reporte"><h1>Reporte General de Frentes</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table border="1"><thead><tr><th>Nombre</th><th>Tipo</th><th>Saldo total</th><th>Pagado</th><th>Restante</th><th>Aportación mensual</th><th>Progreso</th></tr></thead><tbody>`;
-                this.frentes.forEach(f => { html += `<tr><td>${f.nombre}</td><td>${f.tipo}</td><td>$${this.formatNumber(f.saldoTotal)}</td><td>$${this.formatNumber(f.saldoPagado)}</td><td>$${this.formatNumber(f.saldoRestante)}</td><td>$${this.formatNumber(f.aporteMensual)}</td><td>${f.porcentajePagado}%</td></tr>`; });
-                html += `</tbody></table><p><strong>Total compromisos:</strong> $${this.formatNumber(this.totalFrentes)}</p><p><strong>Aportación mensual total:</strong> $${this.formatNumber(this.aporteMensualTotal)}</p><p><strong>Tiempo estimado:</strong> ${this.tiempoEstimadoTotal}</p></div>`;
+                let html = `<div><h1>Reporte General de Frentes</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><table border="1"><thead><tr><th>Nombre</th><th>Tipo</th><th>Saldo total</th><th>Pagado</th><th>Restante</th><th>Aportación mensual</th><th>Progreso</th></tr></thead><tbody>`;
+                this.frentes.forEach(f => { html += `<tr><td>${f.nombre}</td><td>${f.tipo || 'General'}</td><td>$${this.formatNumber(f.saldoTotal)}</td><td>$${this.formatNumber(f.saldoPagado)}</td><td>$${this.formatNumber(f.saldoRestante)}</td><td>$${this.formatNumber(f.aporteMensual)}</td><td>${f.porcentajePagado}%</td></tr>`; });
+                html += `</tbody><td><p><strong>Total compromisos:</strong> $${this.formatNumber(this.totalFrentes)}</p><p><strong>Aportación mensual total:</strong> $${this.formatNumber(this.aporteMensualTotal)}</p><p><strong>Tiempo estimado:</strong> ${this.tiempoEstimadoTotal}</p></div>`;
                 let cont = document.createElement('div'); cont.innerHTML = html; document.body.appendChild(cont);
                 let canvas = await html2canvas(cont, { scale: 2 });
                 let imgData = canvas.toDataURL('image/png');
-                let { jsPDF } = window.jspdf;
                 let pdf = new jsPDF('p', 'mm', 'a4');
                 let imgWidth = 190, imgHeight = (canvas.height * imgWidth) / canvas.width;
                 pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
@@ -499,7 +523,7 @@
                 document.body.removeChild(cont);
             },
             exportarTodoCSV() {
-                let data = this.frentes.map(f => ({ nombre: f.nombre, tipo: f.tipo, saldo_total: f.saldoTotal, saldo_pagado: f.saldoPagado, aporte_mensual: f.aporteMensual, prioridad: f.prioridad, prioridad_maxima: f.prioridadMaxima || false }));
+                let data = this.frentes.map(f => ({ nombre: f.nombre, tipo: f.tipo, saldo_total: f.saldoTotal, saldo_pagado: f.saldoPagado, aporte_mensual: f.aporteMensual, prioridad: f.prioridad, prioridad_maxima: f.prioridadMaxima || false, comentario: f.comentario || '', ultimo_pago: f.ultimoPago || '' }));
                 let csv = Papa.unparse(data);
                 let blob = new Blob([csv], { type: 'text/csv' });
                 let link = document.createElement('a');
@@ -508,79 +532,16 @@
                 link.click();
                 URL.revokeObjectURL(link.href);
             },
-            exportarEfectivoCSV() {
-                let data = this.movimientos.map(m => ({ fecha: m.fecha, tipo: m.tipo, concepto: m.concepto, monto: m.monto }));
-                let csv = Papa.unparse(data);
-                let blob = new Blob([csv], { type: 'text/csv' });
-                let link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'movimientos_efectivo.csv';
-                link.click();
-                URL.revokeObjectURL(link.href);
-            },
-            
-            // METAS
-            abrirModalMeta() { this.editandoMeta = false; this.metaForm = { id: null, nombre: '', descripcion: '', montoMeta: '', ahorrado: '', fechaLimite: '' }; this.modalMeta = true; },
-            editarMeta(meta) { this.editandoMeta = true; this.metaForm = { ...meta }; this.modalMeta = true; },
-            guardarMeta() {
-                if (this.editandoMeta) {
-                    let idx = this.metas.findIndex(m => m.id === this.metaForm.id);
-                    if (idx !== -1) this.metas[idx] = { ...this.metaForm, montoMeta: parseFloat(this.metaForm.montoMeta), ahorrado: parseFloat(this.metaForm.ahorrado || 0), porcentaje: this.metaForm.montoMeta === 0 ? 0 : Math.round((parseFloat(this.metaForm.ahorrado) / parseFloat(this.metaForm.montoMeta)) * 100) };
-                } else {
-                    this.metas.push({ id: Date.now(), ...this.metaForm, montoMeta: parseFloat(this.metaForm.montoMeta), ahorrado: parseFloat(this.metaForm.ahorrado || 0), porcentaje: this.metaForm.montoMeta === 0 ? 0 : Math.round((parseFloat(this.metaForm.ahorrado) / parseFloat(this.metaForm.montoMeta)) * 100) });
-                }
-                this.guardarDatos();
-                this.modalMeta = false;
-                this.mostrarAlerta('Meta guardada');
-            },
-            eliminarMeta(id) { if (confirm('¿Eliminar esta meta?')) { this.metas = this.metas.filter(m => m.id !== id); this.guardarDatos(); } },
-            abrirAbonoMeta(meta) { this.metaActual = meta; this.abonoMetaMonto = ''; this.abonoMetaFecha = new Date().toISOString().slice(0,10); this.modalAbonoMeta = true; },
-            registrarAbonoMeta() {
-                let monto = parseFloat(this.abonoMetaMonto);
-                if (monto > 0 && this.metaActual) {
-                    this.metaActual.ahorrado += monto;
-                    this.metaActual.porcentaje = Math.round((this.metaActual.ahorrado / this.metaActual.montoMeta) * 100);
-                    this.guardarDatos();
-                    this.mostrarAlerta(`Abonaste $${this.formatNumber(monto)} a la meta ${this.metaActual.nombre}`);
-                    this.modalAbonoMeta = false;
-                    if (this.metaActual.ahorrado >= this.metaActual.montoMeta) this.verificarLogro(`¡Alcanzaste la meta "${this.metaActual.nombre}"!`);
-                } else alert('Monto inválido');
-            },
-            
-            // GASTOS BASE
-            abrirModalGastoBase() { this.editandoGastoBase = false; this.gastoBaseForm = { id: null, nombre: '', categoria: 'Vivienda', monto: '', periodicidad: 'mensual', montoMensual: 0 }; this.modalGastoBase = true; },
-            editarGastoBase(gasto) { this.editandoGastoBase = true; this.gastoBaseForm = { ...gasto }; this.modalGastoBase = true; },
-            guardarGastoBase() {
-                let monto = parseFloat(this.gastoBaseForm.monto);
-                let periodicidad = this.gastoBaseForm.periodicidad;
-                let montoMensual = this.calcularMontoMensual({ monto, periodicidad });
-                if (this.editandoGastoBase) {
-                    let idx = this.gastosBase.findIndex(g => g.id === this.gastoBaseForm.id);
-                    if (idx !== -1) this.gastosBase[idx] = { ...this.gastoBaseForm, monto, periodicidad, montoMensual };
-                } else {
-                    this.gastosBase.push({ id: Date.now(), ...this.gastoBaseForm, monto, periodicidad, montoMensual });
-                }
-                this.guardarDatos();
-                this.modalGastoBase = false;
-                this.mostrarAlerta('Gasto base guardado');
-                this.guardarHistorialPresupuesto();
-            },
-            eliminarGastoBase(id) {
-                if (confirm('¿Eliminar este gasto base?')) {
-                    this.gastosBase = this.gastosBase.filter(g => g.id !== id);
-                    this.guardarDatos();
-                    this.guardarHistorialPresupuesto();
-                }
-            },
-            
-            // EFECTIVO
-            abrirModalIngreso() { this.movimientoForm = { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) }; this.tipoMov = 'ingreso'; this.modalMovimiento = true; },
-            abrirModalGasto() { this.movimientoForm = { concepto: '', monto: '', fecha: new Date().toISOString().slice(0,10) }; this.tipoMov = 'gasto'; this.modalMovimiento = true; },
+
+            // Efectivo
+            abrirModalIngreso() { this.movimientoForm = { concepto: '', montoStr: '', fecha: new Date().toISOString().slice(0,10) }; this.tipoMov = 'ingreso'; this.modalMovimiento = true; },
+            abrirModalGasto() { this.movimientoForm = { concepto: '', montoStr: '', fecha: new Date().toISOString().slice(0,10) }; this.tipoMov = 'gasto'; this.modalMovimiento = true; },
             agregarMovimiento() {
-                let mov = { id: Date.now(), tipo: this.tipoMov, concepto: this.movimientoForm.concepto, monto: parseFloat(this.movimientoForm.monto), fecha: this.movimientoForm.fecha };
+                let monto = parseNumber(this.movimientoForm.montoStr);
+                let mov = { id: Date.now(), tipo: this.tipoMov, concepto: this.movimientoForm.concepto, monto, fecha: this.movimientoForm.fecha };
                 this.movimientos.push(mov);
-                if (mov.tipo === 'ingreso') this.saldoEfectivo += mov.monto;
-                else this.saldoEfectivo -= mov.monto;
+                if (mov.tipo === 'ingreso') this.saldoEfectivo += monto;
+                else this.saldoEfectivo -= monto;
                 this.guardarDatos();
                 this.modalMovimiento = false;
                 this.mostrarAlerta(`${mov.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'} registrado`);
@@ -594,72 +555,117 @@
                     this.guardarDatos();
                 }
             },
+            exportarEfectivoCSV() {
+                let data = this.movimientos.map(m => ({ fecha: m.fecha, tipo: m.tipo, concepto: m.concepto, monto: m.monto }));
+                let csv = Papa.unparse(data);
+                let blob = new Blob([csv], { type: 'text/csv' });
+                let link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'movimientos_efectivo.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
+            },
+            async exportarEfectivoPDF() {
+                let html = `<div><h1>Reporte de Flujo de Efectivo</h1><p>Fecha: ${new Date().toLocaleDateString()}</p><p>Saldo actual: $${this.formatNumber(this.saldoEfectivo)}</p><table border="1"><thead><tr><th>Fecha</th><th>Concepto</th><th>Ingreso</th><th>Gasto</th><th>Saldo después</th></tr></thead><tbody>`;
+                this.movimientosConSaldo.forEach(m => { html += `<tr><td>${m.fecha}</td><td>${m.concepto}</td><td>${m.tipo==='ingreso'?'$'+this.formatNumber(m.monto):''}</td><td>${m.tipo==='gasto'?'$'+this.formatNumber(m.monto):''}</td><td>$${this.formatNumber(m.saldo)}</td></tr>`; });
+                html += `</tbody></table></div>`;
+                let cont = document.createElement('div'); cont.innerHTML = html; document.body.appendChild(cont);
+                let canvas = await html2canvas(cont, { scale: 2 });
+                let imgData = canvas.toDataURL('image/png');
+                let pdf = new jsPDF('p', 'mm', 'a4');
+                let imgWidth = 190, imgHeight = (canvas.height * imgWidth) / canvas.width;
+                pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+                pdf.save('reporte_efectivo.pdf');
+                document.body.removeChild(cont);
+            },
             abrirModalReporteEfectivo() { this.modalReporteEfectivo = true; },
-            
-            // ASISTENTE
-            generarSugerencia() {
-                if (!this.ingresoExtra || this.ingresoExtra <= 0) { this.mostrarAlerta('Monto inválido'); return; }
-                let total = parseFloat(this.ingresoExtra);
-                let copia = [...this.frentes];
-                let max = copia.find(f => f.prioridadMaxima === true);
-                let resto = total;
-                let sugerencia = [];
-                if (max) { let montoMax = Math.round(total * 0.5); sugerencia.push({ frente: max, monto: montoMax }); resto -= montoMax; copia = copia.filter(f => f.id !== max.id); }
-                let alta = copia.filter(f => f.prioridad === 'alta');
-                let media = copia.filter(f => f.prioridad === 'media');
-                let baja = copia.filter(f => f.prioridad === 'baja');
-                let pesoTotal = alta.length*3 + media.length*2 + baja.length*1;
-                if (pesoTotal > 0) {
-                    alta.forEach(f => { let m = Math.round(resto * 3 / pesoTotal); sugerencia.push({ frente: f, monto: m }); resto -= m; });
-                    media.forEach(f => { let m = Math.round(resto * 2 / pesoTotal); sugerencia.push({ frente: f, monto: m }); resto -= m; });
-                    baja.forEach(f => { let m = Math.round(resto * 1 / pesoTotal); sugerencia.push({ frente: f, monto: m }); resto -= m; });
-                }
-                if (resto !== 0 && sugerencia.length) sugerencia[0].monto += resto;
-                this.sugerencia = sugerencia;
-            },
-            aplicarSugerencia() {
-                for (let item of this.sugerencia) {
-                    if (item.monto > 0 && item.frente.saldoRestante >= item.monto) {
-                        item.frente.saldoPagado += item.monto;
-                        item.frente.saldoRestante = item.frente.saldoTotal - item.frente.saldoPagado;
-                        item.frente.porcentajePagado = Math.round((item.frente.saldoPagado / item.frente.saldoTotal) * 100);
-                        this.abonos.push({ id: Date.now(), frenteId: item.frente.id, monto: item.monto, concepto: 'Distribución automática', fecha: new Date().toISOString().slice(0,10) });
+
+            // Importar historial
+            abrirModalImportarHistorial(frente) { this.frenteHistorial = frente; this.csvHistorialTexto = ''; this.modalImportarHistorial = true; },
+            procesarImportacionHistorial() {
+                if (!this.csvHistorialTexto.trim()) { alert('Pega un CSV válido'); return; }
+                Papa.parse(this.csvHistorialTexto, { header: true, skipEmptyLines: true, complete: (result) => {
+                    let filas = result.data;
+                    if (filas.length === 0) { alert('No hay datos'); return; }
+                    let registrados = 0, errores = 0;
+                    for (let row of filas) {
+                        let fecha = row.fecha || (row[0] ? row[0] : null);
+                        let monto = parseNumber(row.monto || (row[1] ? row[1] : null));
+                        let concepto = row.concepto || (row[2] ? row[2] : 'Importación masiva');
+                        if (!fecha || isNaN(monto) || monto <= 0) { errores++; continue; }
+                        this.registrarAbonoImportado(this.frenteHistorial.id, monto, fecha, concepto);
+                        registrados++;
                     }
-                }
-                this.guardarDatos();
-                this.sugerencia = [];
-                this.ingresoExtra = null;
-                this.mostrarAlerta('Distribución aplicada');
-            },
-            alternarPrioridadMaxima(frente) {
-                if (!frente.prioridadMaxima) { this.frentes.forEach(f => f.prioridadMaxima = false); frente.prioridadMaxima = true; }
-                else frente.prioridadMaxima = false;
-                this.guardarDatos();
-            },
-            
-            // IMPORTACIÓN CSV
-            abrirModalImportar() { this.modalImportar = true; },
-            procesarImportacion() {
-                Papa.parse(this.csvTexto, { header: true, skipEmptyLines: true, complete: (res) => {
-                    let nuevos = res.data.filter(row => row.nombre && row.saldo_total).map(row => ({
-                        id: Date.now() + Math.random(),
-                        nombre: row.nombre.trim(),
-                        tipo: row.tipo || 'Otro',
-                        saldoTotal: parseFloat(row.saldo_total),
-                        saldoPagado: parseFloat(row.saldo_pagado || 0),
-                        aporteMensual: parseFloat(row.aporte_mensual || 0),
-                        prioridad: row.prioridad || 'media'
-                    }));
-                    nuevos.forEach(f => { f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = f.saldoTotal===0?0:Math.round((f.saldoPagado/f.saldoTotal)*100); });
-                    this.frentes.push(...nuevos);
-                    this.guardarDatos();
-                    this.modalImportar = false;
-                    this.csvTexto = '';
-                    this.mostrarAlerta(`Importados ${nuevos.length} frentes`);
+                    alert(`Importación completada: ${registrados} abonos registrados, ${errores} errores.`);
+                    this.modalImportarHistorial = false;
+                    this.csvHistorialTexto = '';
+                    this.$forceUpdate();
                 }});
             },
-            
-            // PRESUPUESTO E HISTORIAL
+            registrarAbonoImportado(frenteId, monto, fecha, concepto) {
+                let id = Number(frenteId);
+                let f = this.frentes.find(f => f.id === id);
+                if (!f) { console.error("Frente no encontrado", frenteId); return; }
+                if (monto > 0 && monto <= f.saldoRestante) {
+                    f.saldoPagado += monto;
+                    f.saldoRestante = f.saldoTotal - f.saldoPagado;
+                    f.porcentajePagado = Math.round((f.saldoPagado / f.saldoTotal) * 100);
+                    if (fecha) { if (!f.ultimoPago || fecha > f.ultimoPago) f.ultimoPago = fecha; }
+                    this.abonos.push({ id: Date.now(), frenteId: f.id, monto, concepto: concepto || 'Importación masiva', fecha: fecha });
+                    this.guardarDatos();
+                    if (f.saldoRestante === 0) this.verificarLogro(`¡Liquidaste el frente "${f.nombre}" con importación masiva!`);
+                } else { console.warn(`Monto ${monto} inválido o excede saldo restante (${f.saldoRestante})`); }
+            },
+
+            // Metas
+            abrirModalMeta() { this.editandoMeta = false; this.metaForm = { id: null, nombre: '', descripcion: '', montoMetaStr: '', ahorradoStr: '', fechaLimite: '' }; this.modalMeta = true; },
+            editarMeta(meta) { this.editandoMeta = true; this.metaForm = { ...meta, montoMetaStr: meta.montoMeta.toString(), ahorradoStr: meta.ahorrado.toString() }; this.modalMeta = true; },
+            guardarMeta() {
+                let montoMeta = parseNumber(this.metaForm.montoMetaStr);
+                let ahorrado = parseNumber(this.metaForm.ahorradoStr);
+                if (this.editandoMeta) {
+                    let idx = this.metas.findIndex(m => m.id === this.metaForm.id);
+                    if (idx !== -1) { this.metas[idx] = { ...this.metas[idx], montoMeta, ahorrado, porcentaje: montoMeta===0?0:Math.round((ahorrado/montoMeta)*100) }; }
+                } else {
+                    this.metas.push({ id: Date.now(), ...this.metaForm, montoMeta, ahorrado, porcentaje: montoMeta===0?0:Math.round((ahorrado/montoMeta)*100) });
+                }
+                this.guardarDatos();
+                this.modalMeta = false;
+                this.mostrarAlerta('Meta guardada');
+            },
+            eliminarMeta(id) { if (confirm('¿Eliminar esta meta?')) { this.metas = this.metas.filter(m => m.id !== id); this.guardarDatos(); } },
+            abrirAbonoMeta(meta) { this.metaActual = meta; this.abonoMetaMontoStr = ''; this.abonoMetaFecha = new Date().toISOString().slice(0,10); this.modalAbonoMeta = true; },
+            registrarAbonoMeta() {
+                let monto = parseNumber(this.abonoMetaMontoStr);
+                if (monto > 0 && this.metaActual) {
+                    this.metaActual.ahorrado += monto;
+                    this.metaActual.porcentaje = Math.round((this.metaActual.ahorrado / this.metaActual.montoMeta) * 100);
+                    this.guardarDatos();
+                    this.mostrarAlerta(`Abonaste $${this.formatNumber(monto)} a la meta ${this.metaActual.nombre}`);
+                    this.modalAbonoMeta = false;
+                    if (this.metaActual.ahorrado >= this.metaActual.montoMeta) this.verificarLogro(`¡Alcanzaste la meta "${this.metaActual.nombre}"!`);
+                } else alert('Monto inválido');
+            },
+
+            // Gastos base
+            abrirModalGastoBase() { this.editandoGastoBase = false; this.gastoBaseForm = { id: null, nombre: '', categoria: 'Vivienda', montoStr: '', periodicidad: 'mensual' }; this.modalGastoBase = true; },
+            editarGastoBase(gasto) { this.editandoGastoBase = true; this.gastoBaseForm = { ...gasto, montoStr: gasto.monto.toString() }; this.modalGastoBase = true; },
+            guardarGastoBase() {
+                let monto = parseNumber(this.gastoBaseForm.montoStr);
+                if (this.editandoGastoBase) {
+                    let idx = this.gastosBase.findIndex(g => g.id === this.gastoBaseForm.id);
+                    if (idx !== -1) { this.gastosBase[idx] = { ...this.gastoBaseForm, monto, periodicidad: this.gastoBaseForm.periodicidad }; }
+                } else {
+                    this.gastosBase.push({ id: Date.now(), ...this.gastoBaseForm, monto, periodicidad: this.gastoBaseForm.periodicidad });
+                }
+                this.guardarDatos();
+                this.modalGastoBase = false;
+                this.mostrarAlerta('Gasto base guardado');
+                this.guardarHistorialPresupuesto();
+            },
+            eliminarGastoBase(id) { if (confirm('¿Eliminar este gasto base?')) { this.gastosBase = this.gastosBase.filter(g => g.id !== id); this.guardarDatos(); this.guardarHistorialPresupuesto(); } },
+
+            // Presupuesto histórico
             guardarHistorialPresupuesto() {
                 let historial = [...this.historialPresupuesto];
                 const mesKey = this.obtenerClaveMesActual();
@@ -678,10 +684,17 @@
             },
             obtenerClaveMesActual() { const f = new Date(); return `${f.getFullYear()}-${f.getMonth()+1}`; },
             obtenerIngresoManual() { const key = `ingresoManual_${this.obtenerClaveMesActual()}`; const val = localStorage.getItem(key); return val ? parseFloat(val) : null; },
-            guardarIngresoManual() { const key = `ingresoManual_${this.obtenerClaveMesActual()}`; localStorage.setItem(key, this.ingresoManualMonto); this.modalIngresoManual = false; this.mostrarAlerta('Ingreso manual actualizado'); this.guardarHistorialPresupuesto(); },
-            abrirModalIngresoManual() { const actual = this.obtenerIngresoManual(); this.ingresoManualMonto = actual !== null ? actual : this.totalIngresosMes; this.modalIngresoManual = true; },
-            
-            // GRÁFICOS
+            guardarIngresoManual() {
+                let monto = parseNumber(this.ingresoManualMontoStr);
+                const key = `ingresoManual_${this.obtenerClaveMesActual()}`;
+                localStorage.setItem(key, monto);
+                this.modalIngresoManual = false;
+                this.mostrarAlerta('Ingreso manual actualizado');
+                this.guardarHistorialPresupuesto();
+            },
+            abrirModalIngresoManual() { const actual = this.obtenerIngresoManual(); this.ingresoManualMontoStr = actual !== null ? actual.toString() : this.totalIngresosMes.toString(); this.modalIngresoManual = true; },
+
+            // Gráficos
             inicializarGraficos() {
                 const ctxEvo = document.getElementById('evolucionChart')?.getContext('2d');
                 if (ctxEvo) this.chartInstance = new Chart(ctxEvo, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false } });
@@ -712,15 +725,15 @@
             actualizarGraficoHumor() {
                 if (this.chartHumor && this.humorRegistros.length) {
                     const labels = this.humorRegistros.map(h => h.fecha);
-                    const valores = this.humorRegistros.map(h => { if (h.humor === 'feliz') return 3; if (h.humor === 'neutral') return 2; return 1; });
-                    this.chartHumor.data = { labels, datasets: [{ label: 'Estado de ánimo (3=feliz, 2=neutral, 1=estresado)', data: valores, borderColor: '#f59e0b', fill: false, tension: 0.2 }] };
+                    const valores = this.humorRegistros.map(h => { if (h.humor === 'feliz') return 3; if (h.humor === 'tranquilo') return 2.5; if (h.humor === 'neutral') return 2; if (h.humor === 'preocupado') return 1.5; if (h.humor === 'estresado') return 1; if (h.humor === 'enojado') return 0.5; });
+                    this.chartHumor.data = { labels, datasets: [{ label: 'Estado de ánimo', data: valores, borderColor: '#f59e0b', fill: false, tension: 0.2 }] };
                     this.chartHumor.update();
                 }
             },
             obtenerUltimos30Dias() { let dias = []; for (let i=29; i>=0; i--) { let fecha = new Date(); fecha.setDate(fecha.getDate() - i); dias.push(fecha.toISOString().slice(0,10)); } return dias; },
             calcularSaldosDiarios(dias) { let saldo = 0; let movsPorDia = {}; this.movimientos.forEach(m => { if (!movsPorDia[m.fecha]) movsPorDia[m.fecha] = 0; movsPorDia[m.fecha] += (m.tipo === 'ingreso' ? m.monto : -m.monto); }); return dias.map(d => { if (movsPorDia[d]) saldo += movsPorDia[d]; return saldo; }); },
-            
-            // BIENESTAR (humor, XP, logros)
+
+            // Bienestar
             registrarHumor(humor) {
                 const hoy = new Date().toISOString().slice(0,10);
                 const idx = this.humorRegistros.findIndex(h => h.fecha === hoy);
@@ -736,6 +749,22 @@
                 if (existe) { existe.nota = this.notaHoy; this.guardarDatos(); this.mostrarAlerta('Nota guardada'); }
                 else this.mostrarAlerta('Primero selecciona un emoticono para hoy');
             },
+            eliminarRegistroHumor(fecha) { if (confirm('¿Eliminar este registro de humor?')) { this.humorRegistros = this.humorRegistros.filter(h => h.fecha !== fecha); this.guardarDatos(); this.actualizarGraficoHumor(); } },
+            guardarNotaPersonal() {
+                if (!this.notaPersonalTexto.trim()) return;
+                this.notasPersonales.push({
+                    id: Date.now(),
+                    fecha: this.notaPersonalFecha,
+                    etiqueta: this.notaPersonalEtiqueta,
+                    texto: this.notaPersonalTexto
+                });
+                this.guardarDatos();
+                this.mostrarAlerta('Nota personal guardada');
+                this.notaPersonalTexto = '';
+                this.notaPersonalEtiqueta = '';
+                this.notaPersonalFecha = new Date().toISOString().slice(0,10);
+            },
+            eliminarNotaPersonal(id) { if (confirm('¿Eliminar esta nota?')) { this.notasPersonales = this.notasPersonales.filter(n => n.id !== id); this.guardarDatos(); } },
             verificarLogro(mensaje) {
                 this.logros.push({ id: Date.now(), mensaje, fecha: new Date().toLocaleString() });
                 this.agregarXP(100);
@@ -753,55 +782,102 @@
                 }
                 this.guardarDatos();
             },
-            
-            // PERSONALIZACIÓN Y SEGURIDAD
-            cambiarLogo() {
-                let url = prompt('Pega la URL de tu logo (imagen cuadrada):');
-                if (url) { this.logoUrl = url; localStorage.setItem('logoUrl', url); this.mostrarAlerta('Logo actualizado'); }
-            },
-            actualizarLogo() { if (this.logoUrlInput) { this.logoUrl = this.logoUrlInput; localStorage.setItem('logoUrl', this.logoUrlInput); this.mostrarAlerta('Logo actualizado'); } },
-            cambiarColorPrimario() { localStorage.setItem('colorPrimario', this.colorPrimario); this.aplicarColorPrimario(); },
-            aplicarColorPrimario() {
-                document.documentElement.style.setProperty('--color-primario', this.colorPrimario);
-                const btns = document.querySelectorAll('.bg-indigo-600, .bg-indigo-600\\/70');
-                btns.forEach(btn => { btn.style.backgroundColor = this.colorPrimario; });
-            },
-            toggleCifrado() { this.cifradoActivo = !this.cifradoActivo; localStorage.setItem('cifradoActivo', this.cifradoActivo); this.mostrarAlerta(this.cifradoActivo ? 'Cifrado activado' : 'Cifrado desactivado'); },
-            configurarPIN() {
-                let pin = prompt('Ingresa un PIN de 6 dígitos (segundo factor) o déjalo vacío para desactivar:');
-                if (pin && pin.length === 6 && /^\d+$/.test(pin)) { localStorage.setItem('mi_ruta_pin', pin); this.pinActivado = true; this.mostrarAlerta('PIN configurado.'); }
-                else if (pin === '') { localStorage.removeItem('mi_ruta_pin'); this.pinActivado = false; this.mostrarAlerta('PIN desactivado'); }
-                else this.mostrarAlerta('PIN inválido (deben ser 6 dígitos)');
-            },
-            exportarCopiaSeguridad() {
-                const datos = { frentes: this.frentes, abonos: this.abonos, cargos: this.cargos, movimientos: this.movimientos, metas: this.metas, gastosBase: this.gastosBase, historialPresupuesto: this.historialPresupuesto, humorRegistros: this.humorRegistros, logros: this.logros, xpActual: this.xpActual, nivelActual: this.nivelActual, poderOcultoActivado: this.poderOcultoActivado };
-                const json = JSON.stringify(datos);
-                let contenido = json;
-                if (this.cifradoActivo) {
-                    const clave = prompt('Crea una contraseña para cifrar la copia:');
-                    if (clave) contenido = CryptoJS.AES.encrypt(json, clave).toString();
-                    else return;
+
+            // Asistente
+            generarSugerencia() {
+                if (!this.ingresoExtra || this.ingresoExtra <= 0) { this.mostrarAlerta('Monto inválido'); return; }
+                let totalExtra = parseFloat(this.ingresoExtra);
+                let copiaFrentes = this.frentes.map(f => ({ ...f }));
+                let prioridadMax = copiaFrentes.find(f => f.prioridadMaxima === true);
+                let resto = totalExtra;
+                let sugerencia = [];
+                if (prioridadMax && prioridadMax.saldoRestante > 0) {
+                    let asignado = Math.min(resto * 0.5, prioridadMax.saldoRestante);
+                    if (asignado > 0) { sugerencia.push({ frente: prioridadMax, monto: asignado }); resto -= asignado; prioridadMax.saldoRestante -= asignado; }
+                    copiaFrentes = copiaFrentes.filter(f => f.id !== prioridadMax.id);
                 }
-                const blob = new Blob([contenido], { type: 'application/json' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `copia_seguridad_${new Date().toISOString().slice(0,10)}.json`;
-                link.click();
-                URL.revokeObjectURL(link.href);
+                let alta = copiaFrentes.filter(f => f.prioridad === 'alta' && f.saldoRestante > 0);
+                let media = copiaFrentes.filter(f => f.prioridad === 'media' && f.saldoRestante > 0);
+                let baja = copiaFrentes.filter(f => f.prioridad === 'baja' && f.saldoRestante > 0);
+                let pesoTotal = alta.length*3 + media.length*2 + baja.length*1;
+                if (pesoTotal === 0) { if (resto > 0) this.mostrarAlerta(`El ingreso extra cubre todas las deudas. Te sobran $${this.formatNumber(resto)}.`); this.sugerencia = sugerencia; return; }
+                const distribuir = (grupo, ponderador) => {
+                    if (grupo.length === 0) return;
+                    let totalPonderado = grupo.reduce((sum, f) => sum + (f.saldoRestante * ponderador), 0);
+                    for (let f of grupo) {
+                        let propuesta = Math.min(Math.round(resto * (f.saldoRestante * ponderador) / totalPonderado), f.saldoRestante);
+                        if (propuesta > 0) { sugerencia.push({ frente: f, monto: propuesta }); resto -= propuesta; f.saldoRestante -= propuesta; }
+                    }
+                };
+                distribuir(alta, 3);
+                if (resto > 0) distribuir(media, 2);
+                if (resto > 0) distribuir(baja, 1);
+                if (resto > 0) { for (let item of sugerencia) { if (item.frente.saldoRestante > 0) { let adicional = Math.min(resto, item.frente.saldoRestante); item.monto += adicional; item.frente.saldoRestante -= adicional; resto -= adicional; break; } } }
+                this.sugerencia = sugerencia;
+                if (resto > 0) this.mostrarAlerta(`El ingreso extra es mayor a todas las deudas. Te sobran $${this.formatNumber(resto)}.`);
             },
-            
-            // EDICIÓN DE MOVIMIENTOS
-            editarMovimiento(mov) { this.movimientoEditando = { ...mov }; this.modalEditarMovimiento = true; },
+            abrirModalOrdenPago() { this.modalOrdenPago = true; },
+            imprimirOrdenPago() {
+                const contenido = document.getElementById('ordenPagoContenido').innerHTML;
+                const ventana = window.open('', '_blank');
+                ventana.document.write(`<html><head><title>Orden de pago</title><style>body{font-family:sans-serif;padding:20px;} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:8px;text-align:left}</style></head><body>${contenido}</body></html>`);
+                ventana.document.close();
+                ventana.print();
+            },
+            abrirModalDatosBancarios(frente) { this.frenteDatosBancarios = frente; this.datosBancarios = frente.datosBancarios ? { ...frente.datosBancarios } : { banco: '', cuenta: '', clabe: '', referencia: '' }; this.modalDatosBancarios = true; },
+            guardarDatosBancarios() {
+                if (this.frenteDatosBancarios) {
+                    this.frenteDatosBancarios.datosBancarios = { ...this.datosBancarios };
+                    this.guardarDatos();
+                    this.mostrarAlerta('Datos bancarios guardados');
+                    this.modalDatosBancarios = false;
+                }
+            },
+            alternarPrioridadMaxima(frente) {
+                if (!frente.prioridadMaxima) { this.frentes.forEach(f => f.prioridadMaxima = false); frente.prioridadMaxima = true; }
+                else frente.prioridadMaxima = false;
+                this.guardarDatos();
+            },
+
+            // Importar CSV (frentes)
+            abrirModalImportar() { this.modalImportar = true; },
+            procesarImportacion() {
+                Papa.parse(this.csvTexto, { header: true, skipEmptyLines: true, complete: (res) => {
+                    let nuevos = res.data.filter(row => row.nombre && row.saldo_total).map(row => ({
+                        id: Date.now() + Math.random(),
+                        nombre: row.nombre.trim(),
+                        tipo: row.tipo || 'Otro',
+                        saldoTotal: parseNumber(row.saldo_total),
+                        saldoPagado: parseNumber(row.saldo_pagado || 0),
+                        aporteMensual: parseNumber(row.aporte_mensual || 0),
+                        prioridad: row.prioridad || 'media',
+                        comentario: row.comentario || '',
+                        ultimoPago: row.ultimo_pago || '',
+                        saldoRestante: parseNumber(row.saldo_total) - parseNumber(row.saldo_pagado || 0),
+                        porcentajePagado: parseNumber(row.saldo_total) === 0 ? 0 : Math.round((parseNumber(row.saldo_pagado || 0) / parseNumber(row.saldo_total)) * 100)
+                    }));
+                    if (nuevos.length === 0) { alert('No se encontraron datos válidos'); return; }
+                    this.frentes.push(...nuevos);
+                    this.guardarDatos();
+                    this.modalImportar = false;
+                    this.csvTexto = '';
+                    this.mostrarAlerta(`Importados ${nuevos.length} frentes`);
+                }});
+            },
+
+            // Editar movimiento
+            editarMovimiento(mov) { this.movimientoEditando = { ...mov, montoStr: mov.monto.toString() }; this.modalEditarMovimiento = true; },
             guardarEdicionMovimiento() {
                 let mov = this.movimientoEditando;
                 let frente = this.frentes.find(f => f.id === mov.frenteId);
                 if (!frente) return;
+                let nuevoMonto = parseNumber(mov.montoStr);
                 let diferencia = 0;
                 if (mov.tipo === 'abono') {
                     let original = this.abonos.find(a => a.id === mov.id);
                     if (original) {
-                        diferencia = mov.monto - original.monto;
-                        original.monto = mov.monto;
+                        diferencia = nuevoMonto - original.monto;
+                        original.monto = nuevoMonto;
                         original.concepto = mov.concepto;
                         original.fecha = mov.fecha;
                         frente.saldoPagado += diferencia;
@@ -809,8 +885,8 @@
                 } else {
                     let original = this.cargos.find(c => c.id === mov.id);
                     if (original) {
-                        diferencia = mov.monto - original.monto;
-                        original.monto = mov.monto;
+                        diferencia = nuevoMonto - original.monto;
+                        original.monto = nuevoMonto;
                         original.concepto = mov.concepto;
                         original.fecha = mov.fecha;
                         frente.saldoTotal += diferencia;
@@ -840,8 +916,8 @@
                     }
                 }
             },
-            
-            // PERSISTENCIA
+
+            // Persistencia
             cargarDatos() {
                 this.frentes = JSON.parse(localStorage.getItem('frentes') || '[]');
                 this.abonos = JSON.parse(localStorage.getItem('abonos') || '[]');
@@ -851,6 +927,7 @@
                 this.gastosBase = JSON.parse(localStorage.getItem('gastosBase') || '[]');
                 this.historialPresupuesto = JSON.parse(localStorage.getItem('historialPresupuesto') || '[]');
                 this.humorRegistros = JSON.parse(localStorage.getItem('humorRegistros') || '[]');
+                this.notasPersonales = JSON.parse(localStorage.getItem('notasPersonales') || '[]');
                 this.logros = JSON.parse(localStorage.getItem('logros') || '[]');
                 this.xpActual = parseInt(localStorage.getItem('xpActual') || '0');
                 this.nivelActual = parseInt(localStorage.getItem('nivelActual') || '1');
@@ -858,11 +935,16 @@
                 this.poderOcultoActivado = localStorage.getItem('poderOcultoActivado') === 'true';
                 if (!this.gastosBase.length) {
                     this.gastosBase = [
-                        { id: 1, nombre: "Renta", categoria: "Vivienda", monto: 8000, periodicidad: "mensual", montoMensual: 8000 },
-                        { id: 2, nombre: "Luz", categoria: "Vivienda", monto: 600, periodicidad: "bimestral", montoMensual: 300 },
-                        { id: 3, nombre: "Agua", categoria: "Vivienda", monto: 400, periodicidad: "bimestral", montoMensual: 200 },
-                        { id: 4, nombre: "Gasolina", categoria: "Transporte", monto: 800, periodicidad: "semanal", montoMensual: 3464 },
-                        { id: 5, nombre: "Supermercado", categoria: "Alimentación", monto: 1500, periodicidad: "semanal", montoMensual: 6495 }
+                        { id: 1, nombre: "Renta", categoria: "Vivienda", monto: 8000, periodicidad: "mensual" },
+                        { id: 2, nombre: "Luz", categoria: "Vivienda", monto: 600, periodicidad: "bimestral" },
+                        { id: 3, nombre: "Agua", categoria: "Vivienda", monto: 400, periodicidad: "bimestral" },
+                        { id: 4, nombre: "Gasolina", categoria: "Transporte", monto: 800, periodicidad: "semanal" },
+                        { id: 5, nombre: "Supermercado", categoria: "Alimentación", monto: 1500, periodicidad: "semanal" },
+                        { id: 6, nombre: "Internet", categoria: "Vivienda", monto: 600, periodicidad: "mensual" },
+                        { id: 7, nombre: "Streaming", categoria: "Entretenimiento", monto: 400, periodicidad: "mensual" },
+                        { id: 8, nombre: "Gimnasio", categoria: "Salud", monto: 600, periodicidad: "mensual" },
+                        { id: 9, nombre: "Mascotas", categoria: "Mascotas", monto: 500, periodicidad: "mensual" },
+                        { id: 10, nombre: "Jardinería", categoria: "Vivienda", monto: 300, periodicidad: "mensual" }
                     ];
                 }
                 this.frentes.forEach(f => { f.saldoRestante = f.saldoTotal - f.saldoPagado; f.porcentajePagado = f.saldoTotal===0?0:Math.round((f.saldoPagado/f.saldoTotal)*100); });
@@ -878,6 +960,7 @@
                 localStorage.setItem('gastosBase', JSON.stringify(this.gastosBase));
                 localStorage.setItem('historialPresupuesto', JSON.stringify(this.historialPresupuesto));
                 localStorage.setItem('humorRegistros', JSON.stringify(this.humorRegistros));
+                localStorage.setItem('notasPersonales', JSON.stringify(this.notasPersonales));
                 localStorage.setItem('logros', JSON.stringify(this.logros));
                 localStorage.setItem('xpActual', this.xpActual);
                 localStorage.setItem('nivelActual', this.nivelActual);
@@ -887,7 +970,7 @@
             },
             cambiarContrasena() {
                 let nueva = prompt('Nueva contraseña (mínimo 4 caracteres):');
-                if (nueva && nueva.length >= 4) { localStorage.setItem('mi_ruta_auth_password', nueva); this.mostrarAlerta('Contraseña actualizada. La próxima vez usa la nueva.'); }
+                if (nueva && nueva.length >= 4) { localStorage.setItem('mi_ruta_auth_password', nueva); this.mostrarAlerta('Contraseña actualizada.'); }
                 else if (nueva) this.mostrarAlerta('Mínimo 4 caracteres');
             },
             reiniciarTodo() {
@@ -897,14 +980,17 @@
                 }
             },
             cerrarModales() {
+                this.modalPersonalizacion = false;
                 this.modalFrente = false; this.modalAbono = false; this.modalCargo = false; this.modalMeta = false; this.modalAbonoMeta = false;
-                this.modalGastoBase = false; this.modalIngresoManual = false; this.modalImportar = false; this.modalReporteEfectivo = false;
-                this.modalHistorial = false; this.modalEditarMovimiento = false;
+                this.modalGastoBase = false; this.modalIngresoManual = false; this.modalImportar = false; this.modalImportarHistorial = false;
+                this.modalReporteEfectivo = false; this.modalHistorial = false; this.modalEditarMovimiento = false;
+                this.modalDatosBancarios = false; this.modalOrdenPago = false;
                 if (this.modalMovimiento) this.modalMovimiento = false;
             },
             mostrarAlerta(msg) { this.alertaMensaje = msg; this.alertaVisible = true; setTimeout(() => { this.alertaVisible = false; }, 3000); }
         }
     });
 </script>
+
 </body>
 </html>
