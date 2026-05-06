@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Mi Ruta Financiera - Dashboard Inteligente</title>
-  <!-- Tailwind CSS CDN (solo para desarrollo rápido; en producción instalar vía PostCSS) -->
+  <title>Mi Ruta Financiera - Dashboard Completo</title>
+  <!-- Tailwind CSS CDN (para desarrollo rápido) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js para gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -14,7 +14,7 @@
   <!-- Vue 3 -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <style>
-    /* pequeño ajuste para que los gráficos no se deformen en PDF */
+    /* Ajustes para que los gráficos no se deformen en PDF */
     canvas { max-width: 100%; height: auto; }
     body { background: #f3f4f6; }
   </style>
@@ -87,7 +87,7 @@
             <td class="p-2 font-mono text-green-600">$ {{ abonosSimulados[area.id]?.toLocaleString() || 0 }}</td>
           </tr>
         </tbody>
-      </table>
+       </table>
     </div>
     <div class="mt-4 flex flex-wrap gap-3 items-center justify-between">
       <div class="text-sm text-gray-500">🔹 Regla: si ingreso > umbral ({{ umbral }}) → abono a TODAS las áreas. Si no → solo áreas de ALTA prioridad.</div>
