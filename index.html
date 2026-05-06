@@ -3,291 +3,287 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Mi Ruta Financiera - Dashboard Completo</title>
-  <!-- Tailwind CSS CDN (para desarrollo rápido) -->
+  <title>Mi Ruta Financiera · Edición Suprema</title>
+  <!-- Tailwind + Vue + Chart.js + html2canvas + jsPDF + PapaParse + Lucide + Confetti -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js para gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- html2canvas + jsPDF para exportar PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- Vue 3 -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
   <style>
-    /* Ajustes para que los gráficos no se deformen en PDF */
-    canvas { max-width: 100%; height: auto; }
-    body { background: #f3f4f6; }
+    /* Animaciones y estilos extra */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeInUp {
+      animation: fadeInUp 0.4s ease-out;
+    }
+    .card-hover {
+      transition: all 0.25s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 25px -12px rgba(0,0,0,0.15);
+    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    body { background: linear-gradient(135deg, #f9fafb 0%, #eef2ff 100%); font-family: 'Inter', system-ui, sans-serif; }
   </style>
 </head>
-<body class="bg-gray-100 font-sans antialiased">
-
-<div id="app" class="container mx-auto px-4 py-8 max-w-6xl">
-  <!-- Título y fecha -->
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-gray-800">📊 Mi Ruta Financiera</h1>
-    <div class="text-sm text-gray-500 bg-white px-3 py-1 rounded-full shadow">04/05/2026 · Versión Ágil</div>
-  </div>
-
-  <!-- Resumen de ingresos / gastos -->
-  <div class="grid md:grid-cols-3 gap-4 mb-8">
-    <div class="bg-white p-4 rounded-2xl shadow-md">
-      <p class="text-gray-500 text-sm">Ingreso mensual</p>
-      <p class="text-2xl font-bold text-green-600">$ {{ ingresos.toLocaleString() }}</p>
-      <input type="range" v-model.number="ingresos" min="0" max="10000" step="100" class="w-full mt-2">
-    </div>
-    <div class="bg-white p-4 rounded-2xl shadow-md">
-      <p class="text-gray-500 text-sm">Gastos fijos</p>
-      <p class="text-2xl font-bold text-red-500">$ {{ gastosFijos.toLocaleString() }}</p>
-    </div>
-    <div class="bg-white p-4 rounded-2xl shadow-md">
-      <p class="text-gray-500 text-sm">Disponible para abonos</p>
-      <p class="text-2xl font-bold text-blue-600">$ {{ disponible().toLocaleString() }}</p>
+<body class="antialiased">
+<div id="app" class="container mx-auto px-4 py-6 max-w-7xl" v-cloak>
+  <!-- Pantalla de autenticación -->
+  <div v-if="!auth" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-96 animate-fadeInUp">
+      <h2 class="text-2xl font-bold text-center mb-4" :style="{ color: primaryColor }">🔐 Acceso Privado</h2>
+      <input type="password" v-model="passwordInput" @keyup.enter="checkPassword" class="w-full border rounded-xl p-3 mb-4 focus:ring-2 focus:ring-blue-400" placeholder="Contraseña">
+      <button @click="checkPassword" class="w-full bg-blue-600 text-white py-2 rounded-xl hover:bg-blue-700 transition">Entrar</button>
+      <p class="text-xs text-center text-gray-400 mt-3">Demo: admin (cambiable en Configuración)</p>
     </div>
   </div>
 
-  <!-- GRÁFICOS (sin imágenes externas → sin tainted canvas) -->
-  <div class="grid md:grid-cols-3 gap-6 mb-10" id="contenidoPDF">
-    <!-- Gráfico Evolución -->
-    <div class="bg-white p-4 rounded-xl shadow">
-      <h3 class="font-semibold text-gray-700 mb-2">📈 Evolución Ahorro</h3>
-      <canvas id="evolucionChart" width="400" height="250" style="max-width:100%; height:auto;"></canvas>
-    </div>
-    <!-- Gráfico Historial Presupuesto -->
-    <div class="bg-white p-4 rounded-xl shadow">
-      <h3 class="font-semibold text-gray-700 mb-2">📉 Historial Presupuesto</h3>
-      <canvas id="historialPresupuestoChart" width="400" height="250" style="max-width:100%; height:auto;"></canvas>
-    </div>
-    <!-- Gráfico Estado de Ánimo Financiero -->
-    <div class="bg-white p-4 rounded-xl shadow">
-      <h3 class="font-semibold text-gray-700 mb-2">😊 Humor Financiero</h3>
-      <canvas id="humorChart" width="400" height="250" style="max-width:100%; height:auto;"></canvas>
-    </div>
-  </div>
-
-  <!-- TABLA DE ÁREAS / DEUDAS CON PRIORIDAD -->
-  <div class="bg-white rounded-2xl shadow-md p-5 mb-8">
-    <h2 class="text-xl font-bold mb-4">🎯 Áreas de Pago (Simulador Inteligente)</h2>
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-gray-100">
-          <tr><th class="p-2 text-left">Área</th><th class="p-2 text-left">Monto pendiente</th><th class="p-2 text-left">Prioridad</th><th class="p-2 text-left">Peso (%)</th><th class="p-2 text-left">Abono simulado</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="(area, idx) in areas" :key="idx" class="border-b">
-            <td class="p-2">{{ area.nombre }}</td>
-            <td class="p-2">$ {{ area.deuda.toLocaleString() }}</td>
-            <td class="p-2">
-              <span :class="area.altaPrioridad ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'" class="px-2 py-1 rounded-full text-xs font-semibold">
-                {{ area.altaPrioridad ? "ALTA" : "NORMAL" }}
-              </span>
-            </td>
-            <td class="p-2">
-              <input type="number" v-model.number="area.peso" class="w-16 border rounded px-1" min="0" max="100" step="5"> %
-            </td>
-            <td class="p-2 font-mono text-green-600">$ {{ abonosSimulados[area.id]?.toLocaleString() || 0 }}</td>
-          </tr>
-        </tbody>
-       </table>
-    </div>
-    <div class="mt-4 flex flex-wrap gap-3 items-center justify-between">
-      <div class="text-sm text-gray-500">🔹 Regla: si ingreso > umbral ({{ umbral }}) → abono a TODAS las áreas. Si no → solo áreas de ALTA prioridad.</div>
-      <div class="flex gap-2">
-        <button @click="simularPagos" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow">🔄 Simular Pagos</button>
-        <button @click="exportarPDFGeneral" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow">📄 Exportar PDF General (R1)</button>
+  <!-- App principal -->
+  <div v-if="auth" class="space-y-6">
+    <!-- Header dinámico con logo, nivel y botón de configuración -->
+    <div class="flex flex-wrap justify-between items-center gap-4 bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm sticky top-2 z-10">
+      <div class="flex items-center gap-3">
+        <img :src="logoUrl" class="w-12 h-12 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-105 transition" @click="triggerEasterEgg" title="¡Clickea para sorpresas!">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold" :style="{ color: primaryColor }">Mi Ruta Financiera</h1>
+          <p class="text-xs text-gray-500">Control total · Frentes · Efectivo · Metas · Bienestar</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="bg-gradient-to-r from-amber-100 to-amber-200 px-3 py-1 rounded-full shadow text-sm font-bold">🧠 Nivel {{ nivel }} · {{ xp }} / {{ xpSiguiente }} XP</div>
+        <button @click="mostrarConfig = !mostrarConfig" class="bg-gray-200 p-2 rounded-full hover:bg-gray-300 transition text-xl">⚙️</button>
       </div>
     </div>
-  </div>
 
-  <footer class="text-center text-gray-400 text-xs mt-8">
-    "Gracias Función Macho" — Simulador inteligente v2.0 | Mayor!
-  </footer>
+    <!-- Panel de configuración (desplegable) -->
+    <div v-show="mostrarConfig" class="bg-white p-5 rounded-2xl shadow-md grid md:grid-cols-2 gap-4 animate-fadeInUp">
+      <div><label class="block text-sm font-medium">Logo URL</label><input v-model="logoUrl" class="border rounded-lg w-full p-2"></div>
+      <div><label class="block text-sm font-medium">Color primario</label><input type="color" v-model="primaryColor" class="w-full p-1 h-10"></div>
+      <div><label class="block text-sm font-medium">Nueva contraseña</label><input type="password" v-model="newPassword" placeholder="..." class="border rounded-lg w-full p-2"></div>
+      <div class="flex items-end"><button @click="changePassword" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Actualizar</button></div>
+      <div class="col-span-2 text-xs text-gray-400">💾 Todos los datos se guardan en tu navegador. Usa CSV para respaldar.</div>
+    </div>
+
+    <!-- Pestañas principales -->
+    <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+      <button v-for="tab in tabs" :key="tab.key" @click="tabActiva = tab.key" :class="{'bg-blue-600 text-white shadow-md': tabActiva === tab.key, 'bg-gray-100 text-gray-700 hover:bg-gray-200': tabActiva !== tab.key}" class="px-5 py-2 rounded-full font-medium transition-all text-sm md:text-base">{{ tab.nombre }}</button>
+    </div>
+
+    <!-- ==================== FRENTES (acreedores) ==================== -->
+    <div v-show="tabActiva === 'frentes'" class="space-y-6">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <h2 class="text-2xl font-bold">📌 Frentes (deudas)</h2>
+        <div class="flex gap-2">
+          <button @click="importarFrentesCSV" class="bg-green-600 text-white px-3 py-1 rounded-full text-sm shadow hover:bg-green-700">📂 Importar CSV</button>
+          <button @click="exportarFrentesCSV" class="bg-gray-600 text-white px-3 py-1 rounded-full text-sm shadow hover:bg-gray-700">📎 Exportar CSV</button>
+          <button @click="nuevoFrente" class="bg-blue-600 text-white px-3 py-1 rounded-full text-sm shadow hover:bg-blue-700">+ Nuevo frente</button>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div v-for="(f, idx) in frentes" :key="idx" class="bg-white rounded-2xl shadow-md p-5 card-hover transition-all">
+          <div class="flex justify-between items-start">
+            <h3 class="text-lg font-bold" :style="{ color: primaryColor }">{{ f.nombre }}</h3>
+            <div class="flex gap-1">
+              <button @click="verHistorial(f)" class="text-blue-500 text-xs bg-blue-50 px-2 py-1 rounded">📋 Hist</button>
+              <button @click="eliminarFrente(idx)" class="text-red-500 text-xs bg-red-50 px-2 py-1 rounded">🗑️</button>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">{{ f.tipo }} · Prioridad: <span :class="f.prioridad === 'alta' ? 'text-red-600' : 'text-gray-600'">{{ f.prioridad }}</span></p>
+          <div class="mt-2 text-sm">Saldo: <strong class="text-red-600">${{ f.saldo_total.toLocaleString() }}</strong> | Pagado: ${{ f.saldo_pagado.toLocaleString() }}</div>
+          <div class="w-full bg-gray-200 rounded-full h-2 mt-1"><div class="bg-green-500 h-2 rounded-full transition-all duration-500" :style="{ width: (f.saldo_pagado/f.saldo_total*100)+'%' }"></div></div>
+          <div class="mt-2 text-xs">Aporte mensual: ${{ f.aporte_mensual.toLocaleString() }}</div>
+          <div class="mt-3 flex gap-2">
+            <input type="number" v-model.number="f.abonoInput" placeholder="$" class="border rounded-lg w-24 p-1 text-sm">
+            <button @click="abonarFrente(f)" class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">💰 Abonar</button>
+            <button @click="registrarCargo(f)" class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">➕ Cargo</button>
+            <button @click="exportarPDFfrente(f)" class="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs">PDF</button>
+          </div>
+        </div>
+      </div>
+      <!-- Historial modal simplificado -->
+      <div v-if="frenteHistorial" class="bg-white rounded-2xl p-5 shadow">
+        <div class="flex justify-between"><h3 class="font-bold">Historial de {{ frenteHistorial.nombre }}</h3><button @click="frenteHistorial = null" class="text-red-500">Cerrar</button></div>
+        <button @click="exportarCSVhistorial(frenteHistorial)" class="text-sm bg-gray-200 px-2 py-1 rounded my-2">📎 Exportar CSV</button>
+        <button @click="importarHistorialCSV(frenteHistorial)" class="text-sm bg-green-200 px-2 py-1 rounded ml-2">📂 Importar CSV</button>
+        <table class="w-full text-sm mt-2 border"><thead class="bg-gray-50"><tr><th>Fecha</th><th>Monto</th><th>Concepto</th><th></th></tr></thead>
+          <tbody><tr v-for="(mov, i) in frenteHistorial.historial" :key="i"><td><input v-model="mov.fecha" class="w-28 p-1"></td><td><input type="number" v-model.number="mov.monto" class="w-24 p-1"></td><td><input v-model="mov.concepto" class="w-32 p-1"></td><td><button @click="eliminarMovimiento(frenteHistorial, i)" class="text-red-500">❌</button></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== EFECTIVO ==================== -->
+    <div v-show="tabActiva === 'efectivo'" class="space-y-6">
+      <div class="flex justify-between items-center"><h2 class="text-2xl font-bold">💰 Flujo de efectivo</h2><button @click="exportarEfectivoCSV" class="bg-gray-600 text-white px-3 py-1 rounded-full text-sm">Exportar CSV</button></div>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow">Ingresos mes: <strong class="text-green-600">${{ ingresosMes.toLocaleString() }}</strong></div>
+        <div class="bg-white p-4 rounded-xl shadow">Gastos mes: <strong class="text-red-600">${{ gastosMes.toLocaleString() }}</strong></div>
+        <div class="bg-white p-4 rounded-xl shadow">Saldo actual: <strong :style="{ color: primaryColor }">${{ saldoActual.toLocaleString() }}</strong></div>
+      </div>
+      <div class="bg-white p-4 rounded-2xl shadow">
+        <div class="flex flex-wrap gap-2"><input v-model="nuevoMovimiento.descripcion" placeholder="Concepto" class="border p-2 rounded-lg flex-1"><input type="number" v-model.number="nuevoMovimiento.monto" placeholder="Monto" class="border p-2 rounded-lg w-32"><select v-model="nuevoMovimiento.tipo" class="border p-2 rounded-lg"><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option></select><input type="date" v-model="nuevoMovimiento.fecha" class="border p-2 rounded-lg"><button @click="agregarMovimiento" class="bg-blue-600 text-white px-4 py-2 rounded-lg">➕ Agregar</button></div>
+      </div>
+      <canvas id="saldoChart" width="400" height="200" class="bg-white p-2 rounded-xl shadow"></canvas>
+      <div class="bg-white rounded-xl shadow overflow-auto max-h-96"><table class="w-full text-sm"><thead class="bg-gray-100"><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Monto</th><th></th></thead><tbody><tr v-for="(m, idx) in movimientosEfectivo" :key="idx"><td>{{ m.fecha }}</td><td>{{ m.descripcion }}</td><td :class="m.tipo==='ingreso'?'text-green-600':'text-red-600'">{{ m.tipo }}</td><td>${{ m.monto.toLocaleString() }}</td><td><button @click="eliminarMovimientoEfectivo(idx)" class="text-red-400">❌</button></td></tr></tbody></table></div>
+    </div>
+
+    <!-- ==================== METAS ==================== -->
+    <div v-show="tabActiva === 'metas'" class="space-y-6">
+      <div class="flex justify-between"><h2 class="text-2xl font-bold">🎯 Metas financieras</h2><button @click="nuevaMeta" class="bg-blue-600 text-white px-4 py-1 rounded-full">+ Meta</button></div>
+      <div class="grid md:grid-cols-2 gap-5">
+        <div v-for="(meta, idx) in metas" :key="idx" class="bg-white p-5 rounded-2xl shadow">
+          <h3 class="font-bold text-lg">{{ meta.nombre }}</h3>
+          <p class="text-sm text-gray-500">{{ meta.descripcion }}</p>
+          <div class="mt-2">Progreso: ${{ meta.abonado.toLocaleString() }} / ${{ meta.objetivo.toLocaleString() }}</div>
+          <div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-blue-500 h-2 rounded-full transition-all" :style="{ width: (meta.abonado/meta.objetivo*100)+'%' }"></div></div>
+          <div class="mt-3 flex gap-2"><input type="number" v-model.number="meta.abonoInput" placeholder="$" class="border w-24 p-1 rounded"><button @click="abonarMeta(meta)" class="bg-green-500 text-white px-2 py-1 rounded text-sm">Abonar</button><button @click="eliminarMeta(idx)" class="text-red-500 text-sm">🗑️</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== PRESUPUESTO ==================== -->
+    <div v-show="tabActiva === 'presupuesto'" class="space-y-6">
+      <h2 class="text-2xl font-bold">📊 Presupuesto base</h2>
+      <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-white p-3 rounded shadow">Ingresos mensuales: <strong>${{ ingresosMensualesTotal.toLocaleString() }}</strong></div>
+        <div class="bg-white p-3 rounded shadow">Gastos fijos: <strong class="text-red-600">${{ gastosFijosMensualizados.toLocaleString() }}</strong></div>
+        <div class="bg-white p-3 rounded shadow">Superávit: <strong :class="superavit>=0?'text-green-600':'text-red-600'">${{ superavit.toLocaleString() }}</strong></div>
+        <div class="bg-white p-3 rounded shadow">Cobertura: <strong>{{ cobertura }}%</strong></div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow"><div class="flex flex-wrap gap-2 mb-2"><input v-model="nuevoGastoPeriodico.nombre" placeholder="Nombre" class="border p-1 rounded"><input type="number" v-model.number="nuevoGastoPeriodico.monto" placeholder="Monto" class="border p-1 w-28"><select v-model="nuevoGastoPeriodico.periodicidad" class="border p-1"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual">Mensual</option><option value="bimestral">Bimestral</option><option value="trimestral">Trimestral</option><option value="anual">Anual</option></select><button @click="agregarGastoPeriodico" class="bg-blue-600 text-white px-2 py-1 rounded">+</button></div><table class="w-full text-sm"><thead><tr><th>Concepto</th><th>Monto</th><th>Periodicidad</th><th>Mensual</th><th></th></tr></thead><tbody><tr v-for="(g, idx) in gastosPeriodicos" :key="idx"><td>{{ g.nombre }}</td><td>${{ g.monto }}</td><td>{{ g.periodicidad }}</td><td>${{ (g.monto / factorPeriodo(g.periodicidad)).toFixed(0) }}</td><td><button @click="gastosPeriodicos.splice(idx,1)" class="text-red-500">❌</button></td></tr></tbody></table></div>
+      <canvas id="presupuestoChart" width="400" height="200" class="bg-white p-2 rounded-xl shadow"></canvas>
+    </div>
+
+    <!-- ==================== BIENESTAR + SIMULADOR + GAMIFICACIÓN ==================== -->
+    <div v-show="tabActiva === 'bienestar'" class="space-y-6">
+      <!-- Humor diario -->
+      <div class="bg-white p-5 rounded-2xl shadow">
+        <h3 class="font-bold text-xl">😊 Estado de ánimo hoy</h3>
+        <div class="flex gap-3 my-2"><button v-for="e in ['😊','😌','😐','😕','😞','😠']" :key="e" @click="registrarHumor(e)" class="text-3xl hover:scale-125 transition">{{ e }}</button></div>
+        <textarea v-model="notaHumor" placeholder="Nota personal..." class="border rounded w-full p-2 text-sm"></textarea>
+        <canvas id="humorChart" height="150" class="mt-4"></canvas>
+        <div class="mt-2 text-sm">Últimos estados: <span v-for="h in historialHumor.slice(-5)" class="mr-2">{{ h.emoji }} ({{ h.fecha }})</span></div>
+      </div>
+      <!-- Notas de salud -->
+      <div class="bg-white p-5 rounded-2xl shadow"><h3 class="font-bold">📝 Notas personales</h3><div class="flex gap-2"><input v-model="nuevaNota.texto" placeholder="Nota" class="border p-1 flex-1"><input v-model="nuevaNota.etiqueta" placeholder="Etiqueta" class="border p-1 w-32"><button @click="agregarNota" class="bg-blue-500 text-white px-3 rounded">+</button></div><div class="mt-2 max-h-40 overflow-auto"><div v-for="(n, idx) in notasSalud" class="border-b text-sm py-1"><strong>{{ n.etiqueta }}</strong> {{ n.texto }} <span class="text-gray-400">{{ n.fecha }}</span><button @click="notasSalud.splice(idx,1)" class="text-red-400 float-right">🗑️</button></div></div></div>
+
+      <!-- SIMULADOR INTELIGENTE (R2) mejorado -->
+      <div class="bg-gradient-to-br from-white to-blue-50 p-5 rounded-2xl shadow-lg">
+        <h2 class="text-2xl font-bold mb-3">🧠 Simulador Inteligente de Pagos</h2>
+        <div class="grid md:grid-cols-3 gap-4 mb-4">
+          <div><label>Ingreso mensual simulado:</label><input type="number" v-model.number="simIngreso" class="border rounded w-full p-1"></div>
+          <div><label>Gastos fijos:</label><input type="number" v-model.number="simGastosFijos" class="border rounded w-full p-1"></div>
+          <div><label>Umbral (ingreso > umbral → todas áreas):</label><input type="number" v-model.number="simUmbral" class="border rounded w-full p-1"></div>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>Área</th><th>Deuda</th><th>Prioridad</th><th>Peso %</th><th>Abono simulado</th></tr></thead><tbody><tr v-for="(area, idx) in areasSimulador" :key="idx"><td><input v-model="area.nombre" class="w-24 p-1"></td><td><input type="number" v-model.number="area.deuda" class="w-24 p-1"></td><td><input type="checkbox" v-model="area.altaPrioridad"> Alta</td><td><input type="number" v-model.number="area.peso" step="5" class="w-16 p-1"> %</td><td class="text-green-600 font-bold">${{ abonosSimulados[idx]?.toLocaleString() || 0 }}</td></tr></tbody></table></div>
+        <div class="flex gap-3 mt-4"><button @click="simularDistribucion" class="bg-blue-600 text-white px-5 py-2 rounded-full shadow">🔄 Simular distribución</button><button @click="exportarPDFsimulador" class="bg-emerald-600 text-white px-5 py-2 rounded-full shadow">📄 Exportar PDF (con gráficos)</button></div>
+      </div>
+
+      <!-- Logros y celebración -->
+      <div class="bg-white p-5 rounded-2xl shadow"><h3 class="font-bold">🏆 Rincón de celebración</h3><div class="flex flex-wrap gap-2"><span v-for="log in logros" class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs">{{ log }}</span></div><button @click="easterEggManual" class="mt-3 text-sm bg-purple-200 px-4 py-1 rounded-full hover:bg-purple-300">🥚 Activar poder oculto</button></div>
+    </div>
+    <footer class="text-center text-gray-400 text-xs pt-6 border-t">✨ Mi Ruta Financiera · Datos locales · Exporta CSV para respaldo · Versión Suprema 2026 ✨</footer>
+  </div>
 </div>
 
 <script>
-  const { createApp, ref, onMounted } = Vue;
-
-  createApp({
-    setup() {
-      // --- DATOS REACTIVOS ---
-      const ingresos = ref(4200);        // ingreso mensual
-      const gastosFijos = ref(1200);
-      const umbral = ref(3000);          // umbral para regla "abono a todos" (>3000)
-      
-      // Áreas de pago (deudas o categorías)
-      const areas = ref([
-        { id: 'tarjeta', nombre: '💳 Tarjeta de crédito', deuda: 15000, altaPrioridad: true, peso: 40 },
-        { id: 'prestamo', nombre: '🏦 Préstamo personal', deuda: 8000, altaPrioridad: true, peso: 35 },
-        { id: 'servicios', nombre: '⚡ Servicios (luz, agua)', deuda: 3000, altaPrioridad: false, peso: 15 },
-        { id: 'ahorro', nombre: '🐷 Ahorro libre', deuda: 0, altaPrioridad: false, peso: 10 },
-      ]);
-      
-      // Almacenar resultados de simulación
-      const abonosSimulados = ref({});
-      
-      // Referencias para los gráficos Chart.js
-      let evolucionChart = null;
-      let historialChart = null;
-      let humorChart = null;
-      
-      // --- FUNCIÓN DISPONIBLE (ingreso - gastos fijos) ---
-      const disponible = () => Math.max(0, ingresos.value - gastosFijos.value);
-      
-      // --- SIMULADOR DE PAGOS (R2) según nota ---
-      const simularPagos = () => {
-        const disponibleTotal = disponible();
-        if (disponibleTotal <= 0) {
-          abonosSimulados.value = {};
-          alert("No hay dinero disponible después de gastos fijos.");
-          return;
-        }
-        
-        // Filtrar áreas con deuda > 0 o todas (según regla)
-        let areasActivas = areas.value.filter(a => a.deuda > 0);
-        if (areasActivas.length === 0) {
-          abonosSimulados.value = {};
-          alert("No hay deudas activas. ¡Felicidades!");
-          return;
-        }
-        
-        let areasParaAbonar = [];
-        // REGLA: si ingreso total > umbral → TODAS las áreas; si no → solo ALTA prioridad
-        if (ingresos.value > umbral.value) {
-          areasParaAbonar = areasActivas;
-        } else {
-          areasParaAbonar = areasActivas.filter(a => a.altaPrioridad === true);
-        }
-        
-        if (areasParaAbonar.length === 0) {
-          abonosSimulados.value = {};
-          alert("En este umbral no hay áreas de alta prioridad con deuda.");
-          return;
-        }
-        
-        // Distribuir el disponible según el peso de cada área
-        const sumaPesos = areasParaAbonar.reduce((sum, a) => sum + (a.peso || 0), 0);
-        if (sumaPesos === 0) return;
-        
-        const nuevosAbonos = {};
-        areasParaAbonar.forEach(area => {
-          let abono = (area.peso / sumaPesos) * disponibleTotal;
-          // No superar la deuda pendiente
-          abono = Math.min(abono, area.deuda);
-          nuevosAbonos[area.id] = Math.floor(abono);
-        });
-        
-        // También mostrar 0 para las áreas que no reciben abono
-        areas.value.forEach(area => {
-          if (!nuevosAbonos[area.id]) nuevosAbonos[area.id] = 0;
-        });
-        
-        abonosSimulados.value = nuevosAbonos;
-      };
-      
-      // --- INICIALIZAR GRÁFICOS SIN IMÁGENES EXTERNAS (evita canvas tainted)---
-      const initCharts = () => {
-        const ctxEvo = document.getElementById('evolucionChart').getContext('2d');
-        const ctxHist = document.getElementById('historialPresupuestoChart').getContext('2d');
-        const ctxHumor = document.getElementById('humorChart').getContext('2d');
-        
-        // Datos de ejemplo (meses anteriores)
-        evolucionChart = new Chart(ctxEvo, {
-          type: 'line',
-          data: {
-            labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May'],
-            datasets: [{ label: 'Ahorro acumulado', data: [1200, 1900, 2800, 3500, 4100], borderColor: '#10b981', tension: 0.3, fill: false }]
-          },
-          options: { responsive: true, maintainAspectRatio: true }
-        });
-        
-        historialChart = new Chart(ctxHist, {
-          type: 'bar',
-          data: {
-            labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
-            datasets: [{ label: 'Gastos', data: [850, 1020, 760, 940], backgroundColor: '#f97316' }]
-          },
-          options: { responsive: true }
-        });
-        
-        humorChart = new Chart(ctxHumor, {
-          type: 'doughnut',
-          data: {
-            labels: ['Tranquilo', 'Motivado', 'Preocupado'],
-            datasets: [{ data: [55, 30, 15], backgroundColor: ['#22c55e', '#3b82f6', '#eab308'] }]
-          },
-          options: { responsive: true }
-        });
-      };
-      
-      // --- EXPORTAR A PDF (R1) con html2canvas + jsPDF ---
-      const exportarPDFGeneral = async () => {
-        const element = document.getElementById('contenidoPDF');
-        if (!element) return;
-        
-        try {
-          // Usamos html2canvas con opciones que evitan tainted (sin imágenes externas)
-          const canvas = await html2canvas(element, {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            logging: false,
-            useCORS: false,   // no necesitamos CORS porque no hay imágenes externas
-            allowTaint: false
-          });
-          
-          const imgData = canvas.toDataURL('image/png');
-          // Usamos jsPDF desde el CDN (disponible como window.jspdf)
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF('p', 'mm', 'a4');
-          const imgWidth = 190; // mm
-          const pageHeight = 277;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-          let position = 10;
-          
-          pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-          pdf.save(`reporte_financiero_${new Date().toISOString().slice(0,10)}.pdf`);
-        } catch (error) {
-          console.error("Error al generar PDF:", error);
-          alert("No se pudo generar el PDF. Revisa la consola.");
-        }
-      };
-      
-      // Simular automáticamente al iniciar o cuando cambien ingresos/gastos/umbral
-      const autoSimular = () => {
-        simularPagos();
-      };
-      
-      // Observar cambios en inputs relevantes
-      // (En Vue 3 Composition API podemos usar watch, pero para simplificar usaremos efecto)
-      // Recargar gráficos si es necesario; pero no es necesario.
-      
-      onMounted(() => {
-        initCharts();
-        simularPagos(); // primera simulación
-      });
-      
-      // Para que el template reaccione a cambios y re-simule, podemos usar watch manual
-      // Pero lo haremos sencillo: al hacer clic en "Simular Pagos" ya se ejecuta.
-      // Además vincularemos cambios de ingresos/gastos a una re-simulación automática?
-      // Para mejorar UX: si modificas el slider de ingresos, que se actualice.
-      // Usamos un watcher dentro del setup (requiere importar watch desde Vue)
-      // Como usamos CDN, usaremos Vue.watch
-      const { watch } = Vue;
-      watch(ingresos, () => simularPagos());
-      watch(gastosFijos, () => simularPagos());
-      watch(umbral, () => simularPagos());
-      // También cuando cambien pesos o prioridades... pero se dispara manual con botón.
-      
-      return {
-        ingresos,
-        gastosFijos,
-        umbral,
-        areas,
-        abonosSimulados,
-        disponible,
-        simularPagos,
-        exportarPDFGeneral
-      };
-    }
-  }).mount('#app');
+// --------------------------------------------------------------
+//  APP VUE COMPLETA - TODAS LAS FUNCIONALIDADES
+// --------------------------------------------------------------
+new Vue({
+  el: '#app',
+  data: {
+    auth: false, passwordInput: '', storedPassword: 'admin', newPassword: '',
+    mostrarConfig: false, logoUrl: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png', primaryColor: '#2563eb',
+    tabActiva: 'frentes', tabs: [{key:'frentes',nombre:'📌 Frentes'},{key:'efectivo',nombre:'💰 Efectivo'},{key:'metas',nombre:'🎯 Metas'},{key:'presupuesto',nombre:'📊 Presupuesto'},{key:'bienestar',nombre:'😊 Bienestar'}],
+    frentes: [], frenteHistorial: null,
+    movimientosEfectivo: [], nuevoMovimiento: { descripcion: '', monto: 0, tipo: 'gasto', fecha: new Date().toISOString().slice(0,10) },
+    metas: [],
+    gastosPeriodicos: [], nuevoGastoPeriodico: { nombre: '', monto: 0, periodicidad: 'mensual' },
+    historialHumor: [], notaHumor: '', notasSalud: [], nuevaNota: { texto: '', etiqueta: '' },
+    xp: 0, nivel: 1, logros: [],
+    eggCountLogo: 0,
+    // Simulador
+    areasSimulador: [
+      { nombre: 'Tarjeta crédito', deuda: 15000, altaPrioridad: true, peso: 45 },
+      { nombre: 'Préstamo personal', deuda: 8000, altaPrioridad: true, peso: 30 },
+      { nombre: 'Servicios', deuda: 3000, altaPrioridad: false, peso: 15 },
+      { nombre: 'Ahorro', deuda: 0, altaPrioridad: false, peso: 10 }
+    ],
+    simIngreso: 5000, simGastosFijos: 1500, simUmbral: 3000, abonosSimulados: [],
+    // Charts
+    saldoChartObj: null, presupuestoChartObj: null, humorChartObj: null
+  },
+  computed: {
+    saldoActual() { let ing = this.movimientosEfectivo.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0); let gas = this.movimientosEfectivo.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0); return ing-gas; },
+    ingresosMes() { const now=new Date(); const mes=now.getMonth(), año=now.getFullYear(); return this.movimientosEfectivo.filter(m=>{let d=new Date(m.fecha); return m.tipo==='ingreso' && d.getMonth()===mes && d.getFullYear()===año}).reduce((s,m)=>s+m.monto,0); },
+    gastosMes() { const now=new Date(); const mes=now.getMonth(), año=now.getFullYear(); return this.movimientosEfectivo.filter(m=>{let d=new Date(m.fecha); return m.tipo==='gasto' && d.getMonth()===mes && d.getFullYear()===año}).reduce((s,m)=>s+m.monto,0); },
+    ingresosMensualesTotal() { return this.ingresosMes; },
+    gastosFijosMensualizados() { return this.gastosPeriodicos.reduce((sum,g)=>sum+(g.monto/this.factorPeriodo(g.periodicidad)),0); },
+    superavit() { return this.ingresosMensualesTotal - this.gastosFijosMensualizados; },
+    cobertura() { if(this.ingresosMensualesTotal===0) return 0; return Math.round((this.gastosFijosMensualizados/this.ingresosMensualesTotal)*100); },
+    xpSiguiente() { return this.nivel * 500; }
+  },
+  watch: {
+    frentes: { deep:true, handler:'guardarTodo' }, movimientosEfectivo: { deep:true, handler:'guardarTodo' }, metas: { deep:true, handler:'guardarTodo' },
+    gastosPeriodicos: { deep:true, handler:'guardarTodo' }, historialHumor: { deep:true, handler:'guardarTodo' }, notasSalud: { deep:true, handler:'guardarTodo' },
+    xp: 'recalcularNivel', logoUrl: 'guardarTodo', primaryColor: 'guardarTodo',
+    simIngreso: 'simularDistribucion', simGastosFijos: 'simularDistribucion', simUmbral: 'simularDistribucion'
+  },
+  mounted() { this.cargarTodo(); this.initCharts(); this.simularDistribucion(); },
+  methods: {
+    checkPassword() { if(this.passwordInput === this.storedPassword) this.auth=true; else alert('Contraseña incorrecta'); },
+    changePassword() { if(this.newPassword) { this.storedPassword = this.newPassword; this.newPassword=''; alert('Contraseña actualizada'); this.guardarTodo(); } },
+    guardarTodo() { localStorage.setItem('miRutaFinanciera', JSON.stringify({ frentes:this.frentes, movimientosEfectivo:this.movimientosEfectivo, metas:this.metas, gastosPeriodicos:this.gastosPeriodicos, historialHumor:this.historialHumor, notasSalud:this.notasSalud, xp:this.xp, nivel:this.nivel, logros:this.logros, logoUrl:this.logoUrl, primaryColor:this.primaryColor, storedPassword:this.storedPassword })); },
+    cargarTodo() { let data=JSON.parse(localStorage.getItem('miRutaFinanciera')||'{}'); this.frentes=data.frentes||[{nombre:'Préstamo banco',tipo:'Banco',saldo_total:120000,saldo_pagado:20000,aporte_mensual:5000,prioridad:'alta',historial:[],abonoInput:0},{nombre:'Tarjeta crédito',tipo:'Tarjeta',saldo_total:35000,saldo_pagado:5000,aporte_mensual:3000,prioridad:'media',historial:[],abonoInput:0}]; this.movimientosEfectivo=data.movimientosEfectivo||[]; this.metas=data.metas||[]; this.gastosPeriodicos=data.gastosPeriodicos||[]; this.historialHumor=data.historialHumor||[]; this.notasSalud=data.notasSalud||[]; this.xp=data.xp||0; this.nivel=data.nivel||1; this.logros=data.logros||[]; this.logoUrl=data.logoUrl||'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'; this.primaryColor=data.primaryColor||'#2563eb'; if(data.storedPassword) this.storedPassword=data.storedPassword; this.recalcularNivel(); },
+    // Frentes
+    nuevoFrente() { let nom=prompt('Nombre'); if(nom) this.frentes.push({ nombre:nom, tipo:'Otro', saldo_total:0, saldo_pagado:0, aporte_mensual:0, prioridad:'media', historial:[], abonoInput:0 }); this.guardarTodo(); },
+    abonarFrente(f) { let monto=f.abonoInput||0; if(monto<=0) return; let nuevoPagado=Math.min(f.saldo_pagado+monto, f.saldo_total); f.saldo_pagado=nuevoPagado; f.historial.push({ fecha:new Date().toISOString().slice(0,10), monto, concepto:'Abono' }); if(nuevoPagado>=f.saldo_total) { this.logros.push(`✅ ${f.nombre} liquidado`); this.xp+=100; canvasConfetti({particleCount:150,spread:70,origin:{y:0.6}}); } f.abonoInput=0; this.guardarTodo(); },
+    registrarCargo(f) { let monto=parseFloat(prompt('Nuevo cargo')); if(monto>0) { f.saldo_total+=monto; f.historial.push({ fecha:new Date().toISOString().slice(0,10), monto, concepto:'Cargo' }); this.guardarTodo(); } },
+    eliminarFrente(idx) { if(confirm('¿Eliminar?')) this.frentes.splice(idx,1); this.guardarTodo(); },
+    verHistorial(f) { this.frenteHistorial=f; },
+    eliminarMovimiento(frente, idx) { frente.historial.splice(idx,1); this.guardarTodo(); },
+    exportarPDFfrente(frente) { let {jsPDF}=window.jspdf; let doc=new jsPDF(); doc.text(`Reporte: ${frente.nombre}`,10,10); doc.text(`Deuda total: $${frente.saldo_total}`,10,20); doc.text(`Pagado: $${frente.saldo_pagado}`,10,30); doc.save(`${frente.nombre}.pdf`); },
+    exportarFrentesCSV() { let csv=Papa.unparse(this.frentes.map(f=>({nombre:f.nombre,tipo:f.tipo,saldo_total:f.saldo_total,saldo_pagado:f.saldo_pagado,aporte_mensual:f.aporte_mensual,prioridad:f.prioridad}))); this.descargarCSV(csv,'frentes.csv'); },
+    importarFrentesCSV() { let input=document.createElement('input'); input.type='file'; input.accept='.csv'; input.onchange=e=>{ let file=e.target.files[0]; Papa.parse(file,{header:true,complete:res=>{ this.frentes=res.data.map(r=>({...r,saldo_total:parseFloat(r.saldo_total),saldo_pagado:parseFloat(r.saldo_pagado),aporte_mensual:parseFloat(r.aporte_mensual),historial:[],abonoInput:0})); this.guardarTodo(); }}); }; input.click(); },
+    exportarCSVhistorial(frente) { let csv=Papa.unparse(frente.historial); this.descargarCSV(csv,`historial_${frente.nombre}.csv`); },
+    importarHistorialCSV(frente) { let input=document.createElement('input'); input.type='file'; input.accept='.csv'; input.onchange=e=>{ let file=e.target.files[0]; Papa.parse(file,{header:true,complete:res=>{ frente.historial=res.data.map(r=>({fecha:r.fecha,monto:parseFloat(r.monto),concepto:r.concepto})); this.guardarTodo(); }}); }; input.click(); },
+    // Efectivo
+    agregarMovimiento() { if(this.nuevoMovimiento.monto && this.nuevoMovimiento.descripcion) { this.movimientosEfectivo.push({...this.nuevoMovimiento}); this.nuevoMovimiento={descripcion:'',monto:0,tipo:'gasto',fecha:new Date().toISOString().slice(0,10)}; this.actualizarGraficoSaldo(); this.guardarTodo(); } },
+    eliminarMovimientoEfectivo(idx) { this.movimientosEfectivo.splice(idx,1); this.actualizarGraficoSaldo(); this.guardarTodo(); },
+    exportarEfectivoCSV() { let csv=Papa.unparse(this.movimientosEfectivo); this.descargarCSV(csv,'efectivo.csv'); },
+    // Metas
+    nuevaMeta() { let nom=prompt('Nombre meta'); let obj=parseFloat(prompt('Objetivo $')); if(nom && obj) this.metas.push({nombre:nom,descripcion:'',objetivo:obj,abonado:0,abonoInput:0}); this.guardarTodo(); },
+    abonarMeta(meta) { let abono=meta.abonoInput||0; if(abono<=0) return; meta.abonado+=abono; if(meta.abonado>=meta.objetivo) { this.logros.push(`🎯 ${meta.nombre} lograda`); this.xp+=100; canvasConfetti({particleCount:200,spread:100,origin:{y:0.5}}); } meta.abonoInput=0; this.guardarTodo(); },
+    eliminarMeta(idx) { this.metas.splice(idx,1); this.guardarTodo(); },
+    // Presupuesto
+    factorPeriodo(per) { if(per==='semanal') return 4.33; if(per==='quincenal') return 2; if(per==='mensual') return 1; if(per==='bimestral') return 0.5; if(per==='trimestral') return 0.333; if(per==='anual') return 0.0833; return 1; },
+    agregarGastoPeriodico() { if(this.nuevoGastoPeriodico.nombre && this.nuevoGastoPeriodico.monto) { this.gastosPeriodicos.push({...this.nuevoGastoPeriodico}); this.nuevoGastoPeriodico={nombre:'',monto:0,periodicidad:'mensual'}; this.actualizarGraficoPresupuesto(); this.guardarTodo(); } },
+    // Bienestar
+    registrarHumor(emoji) { this.historialHumor.push({fecha:new Date().toISOString().slice(0,10), emoji, nota:this.notaHumor}); this.notaHumor=''; this.actualizarGraficoHumor(); this.guardarTodo(); },
+    agregarNota() { if(this.nuevaNota.texto) { this.notasSalud.push({...this.nuevaNota, fecha:new Date().toISOString().slice(0,10)}); this.nuevaNota={texto:'',etiqueta:''}; this.guardarTodo(); } },
+    // Gamificación
+    recalcularNivel() { this.nivel = Math.floor(this.xp/500)+1; if(this.nivel<1) this.nivel=1; this.guardarTodo(); },
+    triggerEasterEgg() { this.eggCountLogo++; if(this.eggCountLogo===3) { this.xp+=100; canvasConfetti({particleCount:200,spread:80,origin:{y:0.7}, colors:['#ffd700']}); alert('¡Easter egg desbloqueado! +100 XP'); this.eggCountLogo=0; } },
+    easterEggManual() { this.xp+=1000; canvasConfetti({particleCount:300,spread:120,origin:{y:0.7}, colors:['#ffaa00','#ffd700']}); alert('✨ Poder oculto activado: +1000 XP ✨'); this.guardarTodo(); },
+    // Simulador R2
+    simularDistribucion() { let disponible = Math.max(0, this.simIngreso - this.simGastosFijos); let areasActivas = this.areasSimulador.filter(a=>a.deuda>0); if(disponible<=0 || areasActivas.length===0) { this.abonosSimulados=this.areasSimulador.map(()=>0); return; } let areasAAbonar = (this.simIngreso > this.simUmbral) ? areasActivas : areasActivas.filter(a=>a.altaPrioridad); if(areasAAbonar.length===0) { this.abonosSimulados=this.areasSimulador.map(()=>0); return; } let sumaPesos = areasAAbonar.reduce((s,a)=>s+(a.peso||0),0); let nuevos=[]; areasAAbonar.forEach(a=>{ let abono = (a.peso/sumaPesos)*disponible; abono = Math.min(abono, a.deuda); nuevos.push(Math.floor(abono)); }); this.abonosSimulados = this.areasSimulador.map(a=>{ let idx=areasAAbonar.findIndex(x=>x.nombre===a.nombre); return idx>=0 ? nuevos[idx] : 0; }); },
+    async exportarPDFsimulador() { let el = document.querySelector('.bg-gradient-to-br.from-white.to-blue-50'); if(!el) return; try { let canvas = await html2canvas(el,{scale:2,backgroundColor:'#fff'}); let imgData=canvas.toDataURL('image/png'); let {jsPDF}=window.jspdf; let pdf=new jsPDF('p','mm','a4'); pdf.addImage(imgData,'PNG',10,10,190,0); pdf.save(`simulador_${new Date().toISOString().slice(0,10)}.pdf`); } catch(e){ alert('Error al generar PDF'); } },
+    // Gráficos
+    initCharts() { this.actualizarGraficoSaldo(); this.actualizarGraficoPresupuesto(); this.actualizarGraficoHumor(); },
+    actualizarGraficoSaldo() { let ctx=document.getElementById('saldoChart')?.getContext('2d'); if(!ctx) return; if(this.saldoChartObj) this.saldoChartObj.destroy(); let ultimos30=[...this.movimientosEfectivo].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).slice(-30); let fechas=ultimos30.map(m=>m.fecha); let acum=0; let saldos=ultimos30.map(m=>{ acum+=(m.tipo==='ingreso'?m.monto:-m.monto); return acum; }); this.saldoChartObj=new Chart(ctx,{type:'line',data:{labels:fechas,datasets:[{label:'Saldo acumulado',data:saldos,borderColor:this.primaryColor,fill:false,tension:0.3}]}}); },
+    actualizarGraficoPresupuesto() { let ctx=document.getElementById('presupuestoChart')?.getContext('2d'); if(!ctx) return; if(this.presupuestoChartObj) this.presupuestoChartObj.destroy(); this.presupuestoChartObj=new Chart(ctx,{type:'bar',data:{labels:['Gastos fijos','Ingresos'],datasets:[{data:[this.gastosFijosMensualizados,this.ingresosMensualesTotal],backgroundColor:['#f97316','#10b981']}]}}); },
+    actualizarGraficoHumor() { let ctx=document.getElementById('humorChart')?.getContext('2d'); if(!ctx) return; if(this.humorChartObj) this.humorChartObj.destroy(); let ultimos=this.historialHumor.slice(-7); let mapEmoji={'😊':5,'😌':4,'😐':3,'😕':2,'😞':1,'😠':0}; let puntos=ultimos.map(h=>mapEmoji[h.emoji]||3); this.humorChartObj=new Chart(ctx,{type:'line',data:{labels:ultimos.map(h=>h.fecha),datasets:[{label:'Ánimo',data:puntos,borderColor:'#eab308',fill:false}]}}); },
+    descargarCSV(csv,nombre) { let blob=new Blob([csv],{type:'text/csv'}); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nombre; a.click(); }
+  }
+});
 </script>
 </body>
 </html>
